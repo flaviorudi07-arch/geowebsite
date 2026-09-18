@@ -1,0 +1,2406 @@
+<!DOCTYPE html>
+<html lang="fr" class="dark h-full bg-[#05070e] text-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GUESS THE WORLD 🌍 - Daily Globe Game</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            400: '#4ade80',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            900: '#14532d',
+                        },
+                        accent: '#38bdf8',
+                        darkBg: '#05070e'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                        display: ['Space Grotesk', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome & Google Fonts -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@600;700&display=swap">
+    
+    <!-- Three.js & OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/topojson-client@3"></script>
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            user-select: none;
+            touch-action: manipulation;
+        }
+        .font-display { font-family: 'Space Grotesk', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        .glass-card {
+            background: rgba(13, 18, 30, 0.88);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+        .glass-btn {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .glass-btn:hover:not(:disabled) {
+            background: rgba(51, 65, 85, 0.9);
+            border-color: rgba(255, 255, 255, 0.35);
+            transform: translateY(-1px);
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+    </style>
+</head>
+<body class="h-full w-full bg-[#05070e] text-slate-100 relative overflow-hidden select-none">
+
+    <!-- 3D WebGL Globe Canvas Container -->
+    <div id="globe-container" class="absolute inset-0 z-0 cursor-grab active:cursor-grabbing"></div>
+
+    <!-- START & MANDATORY LOGIN SCREEN OVERLAY -->
+    <div id="login-overlay" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-xl">
+        <div class="glass-card rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-slate-700 text-center space-y-6 animate-in fade-in zoom-in duration-300">
+            <div class="space-y-2">
+                <div class="w-16 h-16 rounded-3xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-400 text-3xl mx-auto shadow-lg shadow-emerald-500/10">
+                    🌍
+                </div>
+                <h1 class="text-2xl sm:text-3xl font-bold font-display tracking-tight text-white">GUESS THE WORLD</h1>
+                <p id="login-subtitle" class="text-xs text-slate-400 font-mono">5 LIEUX. 1 GLOBE. CHAQUE JOUR.</p>
+            </div>
+
+            <div class="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 text-left space-y-2.5 text-xs text-slate-300">
+                <div class="flex items-center gap-2 text-emerald-400 font-semibold font-mono">
+                    <i class="fa-solid fa-circle-check"></i>
+                    <span id="login-feat-1">Challenge quotidien unique pour tous</span>
+                </div>
+                <div class="flex items-center gap-2 text-amber-400 font-semibold font-mono">
+                    <i class="fa-solid fa-fire"></i>
+                    <span id="login-feat-2">Sauvegarde de votre Streak & Statistiques</span>
+                </div>
+                <div class="flex items-center gap-2 text-sky-400 font-semibold font-mono">
+                    <i class="fa-solid fa-globe"></i>
+                    <span id="login-feat-3">Globe 3D interactif et indices progressifs</span>
+                </div>
+            </div>
+
+            <div class="space-y-3 pt-2">
+                <button onclick="simulateGoogleLogin()" class="w-full py-3.5 bg-white hover:bg-slate-100 text-slate-900 font-bold font-display rounded-2xl text-xs sm:text-sm transition shadow-xl flex items-center justify-center gap-3">
+                    <svg class="w-5 h-5" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                    </svg>
+                    <span id="google-login-btn-text">Se connecter avec Google</span>
+                </button>
+                <p id="login-disclaimer" class="text-[10px] text-slate-500 font-mono">Connexion requise pour valider votre challenge du jour.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- HEADER / NAVBAR -->
+    <header class="absolute top-0 left-0 right-0 z-20 p-3 sm:p-4 flex items-center justify-between pointer-events-none">
+        <!-- Logo & Title -->
+        <div class="glass-card rounded-2xl px-3.5 py-2 flex items-center gap-2.5 pointer-events-auto shadow-2xl">
+            <div class="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-400 text-lg">
+                🌍
+            </div>
+            <div>
+                <h1 class="text-xs sm:text-sm font-bold font-display tracking-wide text-white">GUESS THE WORLD</h1>
+                <p id="daily-date" class="text-[10px] text-slate-400 font-mono">CHALLENGE DU JOUR</p>
+            </div>
+        </div>
+
+        <!-- Top Right Controls (User Profile, Streak, Lang, Stats, Help) -->
+        <div class="flex items-center gap-2 pointer-events-auto">
+            <!-- User Profile Avatar -->
+            <div id="user-profile-badge" class="hidden glass-card rounded-2xl px-2.5 py-1.5 flex items-center gap-2 border-slate-700">
+                <img id="user-avatar" src="" alt="Avatar" class="w-6 h-6 rounded-full border border-emerald-400">
+                <span id="user-name" class="text-xs font-semibold text-slate-200 hidden sm:inline">Joueur</span>
+            </div>
+
+            <!-- Streak Counter -->
+            <div class="glass-card rounded-2xl px-3 py-1.5 flex items-center gap-1.5 font-mono text-xs text-amber-400 border-amber-500/30">
+                <i class="fa-solid fa-fire text-amber-500 animate-pulse"></i>
+                <span id="streak-count" class="font-bold">0</span>
+            </div>
+
+            <!-- Language Switcher -->
+            <button onclick="toggleLanguage()" class="glass-btn px-2.5 py-1.5 rounded-2xl text-xs font-semibold text-slate-200 flex items-center gap-1">
+                <span id="lang-flag">🇫🇷</span>
+                <span id="lang-label" class="uppercase text-[11px]">FR</span>
+            </button>
+
+            <!-- Stats Modal Toggle -->
+            <button onclick="openModal('stats-modal')" class="glass-btn w-9 h-9 rounded-2xl flex items-center justify-center text-slate-200">
+                <i class="fa-solid fa-chart-simple text-xs"></i>
+            </button>
+
+            <!-- Help / How to play -->
+            <button onclick="openModal('help-modal')" class="glass-btn w-9 h-9 rounded-2xl flex items-center justify-center text-slate-200">
+                <i class="fa-solid fa-circle-question text-xs"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN GAME HUD PANEL (LEFT SIDE / TOP MOBILE) -->
+    <main id="game-hud" class="absolute top-16 left-3 right-3 sm:right-auto sm:left-4 sm:top-20 z-20 sm:max-w-md w-full pointer-events-auto transition-all">
+        <div class="glass-card rounded-3xl p-4 sm:p-5 shadow-2xl border border-slate-700/80 space-y-3">
+            
+            <!-- Round Bar Header -->
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div class="flex items-center gap-2">
+                    <span id="target-type-badge" class="px-2.5 py-1 rounded-full text-[11px] font-bold font-mono tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                        🌍 PAYS
+                    </span>
+                    <span id="round-indicator" class="text-xs font-mono text-slate-400">MANCHE 1 / 5</span>
+                </div>
+                <div class="text-right">
+                    <span class="text-[10px] text-slate-400 block font-mono">POTENTIEL MAX</span>
+                    <span id="max-points-indicator" class="text-xs font-bold font-mono text-amber-400">1000 PTS</span>
+                </div>
+            </div>
+
+            <!-- Clues Card Display -->
+            <div class="space-y-2">
+                <div class="flex items-center justify-between text-xs text-slate-400 font-mono">
+                    <span>INDICES RÉVÉLÉS (<span id="clue-count-text">1</span>/5)</span>
+                    <span class="text-[10px] text-slate-500">Plaquez votre guess sur le globe</span>
+                </div>
+                <div id="clues-container" class="space-y-2 max-h-48 sm:max-h-60 overflow-y-auto pr-1">
+                    <!-- Clues populated dynamically -->
+                </div>
+            </div>
+
+            <!-- Reveal Next Clue Action Button -->
+            <button id="next-clue-btn" onclick="revealNextClue()" class="w-full py-2 bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition border border-slate-700 flex items-center justify-center gap-2">
+                <i class="fa-solid fa-lightbulb text-amber-400"></i>
+                <span id="next-clue-text">Découvrir l'indice suivant (2/5) [-200 pts]</span>
+            </button>
+
+            <!-- Guess Confirmation Controls -->
+            <div class="pt-2 space-y-2">
+                <div id="guess-status" class="text-center text-xs font-mono text-slate-400 py-1 bg-slate-900/60 rounded-xl border border-slate-800">
+                    📍 Touchez le globe pour placer votre marqueur
+                </div>
+                
+                <button id="confirm-guess-btn" disabled onclick="confirmGuess()" class="w-full py-3 bg-emerald-600 disabled:bg-slate-800 text-white disabled:text-slate-500 font-bold font-display rounded-2xl text-sm transition shadow-lg disabled:shadow-none flex items-center justify-center gap-2 border border-emerald-400/30 disabled:border-slate-700">
+                    <i class="fa-solid fa-location-dot"></i>
+                    <span id="confirm-btn-text">CONFIRMER MON GUESS</span>
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- FLOATING RECAP CONTROLS BAR (Shown after game completion) -->
+    <div id="recap-hud-bar" class="hidden absolute bottom-6 left-1/2 -translate-x-1/2 z-30 pointer-events-auto">
+        <div class="glass-card rounded-full px-5 py-2.5 flex items-center gap-3 shadow-2xl border border-slate-700">
+            <span class="text-xs font-mono font-bold text-amber-400 flex items-center gap-1.5">
+                <i class="fa-solid fa-layer-group"></i> RÉCAP DES 5 PINGS
+            </span>
+            <button onclick="openModal('summary-modal')" class="px-3 py-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-full text-xs font-bold font-display transition">
+                VOIR LE SCORE
+            </button>
+        </div>
+    </div>
+
+    <!-- ROUND RESULT OVERLAY MODAL -->
+    <div id="result-modal" class="hidden fixed inset-0 z-40 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+        <div class="glass-card rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-700 space-y-4 animate-in fade-in zoom-in duration-200">
+            <div class="text-center space-y-1">
+                <span id="result-flag" class="text-5xl block">🇳🇴</span>
+                <h2 id="result-name" class="text-2xl font-bold font-display text-white">Norvège</h2>
+                <p id="result-type" class="text-xs font-mono text-emerald-400 uppercase">PAYS CIBLE</p>
+            </div>
+
+            <!-- Inside Country Banner (When player landed inside territory) -->
+            <div id="result-inside-badge" class="hidden p-2 bg-emerald-500/20 border border-emerald-400/40 rounded-2xl text-center text-xs font-mono font-bold text-emerald-400">
+                🎉 PING DANS LE PAYS ! SCORE MAXIMUM OBTENU !
+            </div>
+
+            <!-- Result Metrics -->
+            <div class="grid grid-cols-3 gap-2 bg-slate-900/80 p-3 rounded-2xl border border-slate-800 text-center font-mono">
+                <div>
+                    <span class="text-[10px] text-slate-400 block">DISTANCE</span>
+                    <span id="result-dist" class="text-sm font-bold text-white">846 km</span>
+                </div>
+                <div>
+                    <span class="text-[10px] text-slate-400 block">DIRECTION</span>
+                    <span id="result-dir" class="text-sm font-bold text-slate-200">↗ Nord-Est</span>
+                </div>
+                <div>
+                    <span class="text-[10px] text-slate-400 block">SCORE</span>
+                    <span id="result-score" class="text-sm font-bold text-amber-400">+812 pts</span>
+                </div>
+            </div>
+
+            <!-- Real Info & Fun Fact -->
+            <div class="bg-slate-900/60 p-3.5 rounded-2xl border border-slate-800 text-xs space-y-2">
+                <div class="flex justify-between text-slate-300">
+                    <span class="text-slate-400">Capitale / Siège:</span>
+                    <span id="result-capital" class="font-medium text-white">Oslo</span>
+                </div>
+                <div class="flex justify-between text-slate-300">
+                    <span class="text-slate-400">Population:</span>
+                    <span id="result-pop" class="font-medium text-white">5,4 millions</span>
+                </div>
+                <hr class="border-slate-800">
+                <p id="result-fact" class="text-slate-300 text-[11px] leading-relaxed italic">
+                    "La Norvège possède le plus long tunnel routier du monde."
+                </p>
+            </div>
+
+            <button onclick="nextRound()" class="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold font-display rounded-2xl text-sm transition shadow-lg shadow-emerald-500/20">
+                <span id="next-round-btn-text">MANCHE SUIVANTE</span> <i class="fa-solid fa-arrow-right ml-1"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- FINAL DAILY SUMMARY MODAL -->
+    <div id="summary-modal" class="hidden fixed inset-0 z-40 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md">
+        <div class="glass-card rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-700 space-y-4">
+            <div class="text-center space-y-1">
+                <div class="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-400/40 text-amber-400 flex items-center justify-center text-2xl mx-auto mb-2">
+                    🏆
+                </div>
+                <h2 class="text-xl font-bold font-display text-white">RÉSULTAT DU JOUR</h2>
+                <p id="summary-date" class="text-xs font-mono text-slate-400">Challenge du 18 Septembre 2026</p>
+            </div>
+
+            <!-- Big Score Header -->
+            <div class="text-center py-3 bg-slate-900/80 rounded-2xl border border-slate-800 font-mono">
+                <span class="text-[10px] text-slate-400 block">SCORE TOTAL</span>
+                <span id="summary-total-score" class="text-3xl font-bold font-display text-amber-400">4,287 / 5,000</span>
+            </div>
+
+            <!-- Round Breakdown List -->
+            <div id="summary-rounds-list" class="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                <!-- Dynamically filled -->
+            </div>
+
+            <!-- Action buttons -->
+            <div class="space-y-2 pt-2">
+                <button onclick="copyShareResults()" class="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold font-display rounded-2xl text-sm transition shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-share-nodes"></i>
+                    <span id="share-btn-text">PARTAGER MON RÉSULTAT</span>
+                </button>
+                <button onclick="viewFullRecapOnGlobe()" class="w-full py-2.5 glass-btn text-slate-300 font-semibold rounded-2xl text-xs transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-globe text-amber-400"></i>
+                    <span id="view-recap-btn-text">VOIR LE RÉCAP DES 5 PINGS SUR LE GLOBE</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- STATS MODAL -->
+    <div id="stats-modal" class="hidden fixed inset-0 z-40 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+        <div class="glass-card rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-700 space-y-4">
+            <div class="flex justify-between items-center">
+                <h2 class="text-lg font-bold font-display text-white">MES STATISTIQUES</h2>
+                <button onclick="closeModal('stats-modal')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 font-mono">
+                <div class="bg-slate-900/80 p-3 rounded-2xl border border-slate-800 text-center">
+                    <span class="text-xl font-bold text-white block" id="stat-played">0</span>
+                    <span class="text-[10px] text-slate-400">PARTIES JOUÉES</span>
+                </div>
+                <div class="bg-slate-900/80 p-3 rounded-2xl border border-slate-800 text-center">
+                    <span class="text-xl font-bold text-amber-400 block" id="stat-streak">🔥 0</span>
+                    <span class="text-[10px] text-slate-400">SÉRIE ACTUELLE</span>
+                </div>
+                <div class="bg-slate-900/80 p-3 rounded-2xl border border-slate-800 text-center">
+                    <span class="text-xl font-bold text-emerald-400 block" id="stat-avg-score">0</span>
+                    <span class="text-[10px] text-slate-400">SCORE MOYEN</span>
+                </div>
+                <div class="bg-slate-900/80 p-3 rounded-2xl border border-slate-800 text-center">
+                    <span class="text-xl font-bold text-accent block" id="stat-best-streak">0</span>
+                    <span class="text-[10px] text-slate-400">MEILLEUR STREAK</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- HELP / HOW TO PLAY MODAL -->
+    <div id="help-modal" class="hidden fixed inset-0 z-40 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+        <div class="glass-card rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-700 space-y-4 text-xs leading-relaxed">
+            <div class="flex justify-between items-center">
+                <h2 class="text-lg font-bold font-display text-white">COMMENT JOUER ?</h2>
+                <button onclick="closeModal('help-modal')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="space-y-3 text-slate-300">
+                <div class="flex gap-3 items-start">
+                    <div class="w-6 h-6 rounded-lg bg-emerald-500/20 text-emerald-400 font-bold flex items-center justify-center shrink-0">1</div>
+                    <p><strong class="text-white">Connexion Google :</strong> Connectez-vous pour enregistrer votre streak quotidien.</p>
+                </div>
+                <div class="flex gap-3 items-start">
+                    <div class="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-400 font-bold flex items-center justify-center shrink-0">2</div>
+                    <p><strong class="text-white">Règle des Pays :</strong> Pour un pays, si votre ping tombe <span class="text-emerald-400 font-semibold">à l'intérieur de ses frontières</span>, vous obtenez 100% des points max selon l'indice !</p>
+                </div>
+                <div class="flex gap-3 items-start">
+                    <div class="w-6 h-6 rounded-lg bg-accent/20 text-accent font-bold flex items-center justify-center shrink-0">3</div>
+                    <p><strong class="text-white">Récap des 5 pings :</strong> À la fin des 5 manches, visualisez l'ensemble de vos positions et distances directement sur le globe 3D.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Rich locations database (Countries & Cities) with territory radiuses for inside-country checks
+        const LOCATION_DATABASE = [
+            // --- EUROPE ---
+            {
+                id: "france",
+                type: "country",
+                names: { fr: "France", en: "France" },
+                flag: "🇫🇷",
+                capital: "Paris",
+                pop: "68 millions",
+                coords: { lat: 46.2276, lng: 2.2137 },
+                radiusKm: 500,
+                clues: {
+                    fr: [
+                        "Indice 1 : Pays d'Europe occidentale surnommé 'l'Hexagone'.",
+                        "Indice 2 : Bordé par la Manche, l'Océan Atlantique et la Mer Méditerranée.",
+                        "Indice 3 : Premier pays visité par les touristes étrangers au monde.",
+                        "Indice 4 : Sa capitale abrite la Tour Eiffel et le musée du Louvre.",
+                        "Indice 5 : Célèbre pour sa gastronomie, ses vins et sa Révolution de 1789."
+                    ],
+                    en: [
+                        "Clue 1: Western European country nicknamed 'The Hexagon'.",
+                        "Clue 2: Bordered by the English Channel, Atlantic Ocean, and Mediterranean Sea.",
+                        "Clue 3: The world's most visited country by international tourists.",
+                        "Clue 4: Its capital features the Eiffel Tower and the Louvre museum.",
+                        "Clue 5: World-famous for gastronomy, fine wines, and the 1789 Revolution."
+                    ]
+                },
+                fact: {
+                    fr: "La France est le pays qui couvre le plus de fuseaux horaires au monde (12 au total avec les DOM-TOM).",
+                    en: "France spans the most time zones of any country in the world (12 total including overseas territories)."
+                }
+            },
+            {
+                id: "italy",
+                type: "country",
+                names: { fr: "Italie", en: "Italy" },
+                flag: "🇮🇹",
+                capital: "Rome",
+                pop: "59 millions",
+                coords: { lat: 41.8719, lng: 12.5674 },
+                radiusKm: 400,
+                clues: {
+                    fr: [
+                        "Indice 1 : Péninsule d'Europe du Sud reconnaissable à sa forme de botte.",
+                        "Indice 2 : Enclava deux micro-États indépendants sur son territoire : le Vatican et Saint-Marin.",
+                        "Indice 3 : Berceau de l'Empire Romain et du mouvement de la Renaissance.",
+                        "Indice 4 : Célèbre pour le Colisée, la pizza napolitaine et les canaux de Venise.",
+                        "Indice 5 : Sa capitale est surnommée la 'Ville Éternelle'."
+                    ],
+                    en: [
+                        "Clue 1: Southern European boot-shaped peninsula jutting into the Mediterranean.",
+                        "Clue 2: Encloses two independent microstates within its borders: Vatican City and San Marino.",
+                        "Clue 3: Birthplace of the Roman Empire and the Renaissance movement.",
+                        "Clue 4: Famous for the Colosseum, Neapolitan pizza, and Venetian canals.",
+                        "Clue 5: Its historic capital city is known as the 'Eternal City'."
+                    ]
+                },
+                fact: {
+                    fr: "L'Italie abrite le plus grand nombre de sites classés au patrimoine mondial de l'UNESCO.",
+                    en: "Italy has more UNESCO World Heritage Sites than any other country on Earth."
+                }
+            },
+            {
+                id: "spain",
+                type: "country",
+                names: { fr: "Espagne", en: "Spain" },
+                flag: "🇪🇸",
+                capital: "Madrid",
+                pop: "47 millions",
+                coords: { lat: 40.4637, lng: -3.7492 },
+                radiusKm: 450,
+                clues: {
+                    fr: [
+                        "Indice 1 : Occupe la majeure partie de la péninsule Ibérique dans le sud-ouest de l'Europe.",
+                        "Indice 2 : Possède les archipels des Baléares en Méditerranée et des Canaries dans l'Atlantique.",
+                        "Indice 3 : Célèbre pour la danse flamenco, la paella et les corridas.",
+                        "Indice 4 : Abrite la basilique de la Sagrada Família à Barcelone.",
+                        "Indice 5 : Sa capitale située au centre du pays est Madrid."
+                    ],
+                    en: [
+                        "Clue 1: Occupies the vast majority of the Iberian Peninsula in southwestern Europe.",
+                        "Clue 2: Includes the Balearic Islands in the Mediterranean and the Canary Islands in the Atlantic.",
+                        "Clue 3: Famous for flamenco dancing, paella, and historic architecture.",
+                        "Clue 4: Home to the famous Sagrada Família basilica in Barcelona.",
+                        "Clue 5: Its capital city located in the geographic center of the country is Madrid."
+                    ]
+                },
+                fact: {
+                    fr: "L'Espagne est le premier producteur mondial d'huile d'olive.",
+                    en: "Spain produces roughly half of the entire world's olive oil supply."
+                }
+            },
+            {
+                id: "germany",
+                type: "country",
+                names: { fr: "Allemagne", en: "Germany" },
+                flag: "🇩🇪",
+                capital: "Berlin",
+                pop: "84 millions",
+                coords: { lat: 51.1657, lng: 10.4515 },
+                radiusKm: 400,
+                clues: {
+                    fr: [
+                        "Indice 1 : Pays le plus peuplé de l'Union Européenne.",
+                        "Indice 2 : Frontalier avec 9 pays différents en Europe centrale.",
+                        "Indice 3 : Première puissance économique du continent européen.",
+                        "Indice 4 : Célèbre pour la fête de la bière (Oktoberfest), ses châteaux et ses autoroutes sans limitation de vitesse.",
+                        "Indice 5 : Sa capitale fut divisée par un mur célèbre jusqu'en 1989."
+                    ],
+                    en: [
+                        "Clue 1: The most populous member state of the European Union.",
+                        "Clue 2: Shares land borders with 9 neighboring European nations.",
+                        "Clue 3: Largest national economy in Europe and 4th largest in the world.",
+                        "Clue 4: Famous for Oktoberfest, fairy-tale castles, and the Autobahn highway network.",
+                        "Clue 5: Its capital city was divided by a famous wall until 1989."
+                    ]
+                },
+                fact: {
+                    fr: "L'Allemagne compte plus de 20 000 châteaux répartis sur son territoire.",
+                    en: "Germany is home to over 20,000 historic castles and fortresses."
+                }
+            },
+            {
+                id: "uk",
+                type: "country",
+                names: { fr: "Royaume-Uni", en: "United Kingdom" },
+                flag: "🇬🇧",
+                capital: "Londres",
+                pop: "67 millions",
+                coords: { lat: 55.3781, lng: -3.4360 },
+                radiusKm: 350,
+                clues: {
+                    fr: [
+                        "Indice 1 : État insulaire composé de l'Angleterre, l'Écosse, le Pays de Galles et l'Irlande du Nord.",
+                        "Indice 2 : Séparé de l'Europe continentale par la Manche et le pas de Calais.",
+                        "Indice 3 : Berceau de la Révolution Industrielle et de la langue anglaise.",
+                        "Indice 4 : Abrite la monarchie britannique au palais de Buckingham et l'horloge Big Ben.",
+                        "Indice 5 : Sa capitale cosmopolite est traversée par la Tamise."
+                    ],
+                    en: [
+                        "Clue 1: Island nation comprising England, Scotland, Wales, and Northern Ireland.",
+                        "Clue 2: Separated from continental Europe by the English Channel.",
+                        "Clue 3: Birthplace of the Industrial Revolution and modern parliamentary democracy.",
+                        "Clue 4: Home to the British monarchy at Buckingham Palace and Big Ben.",
+                        "Clue 5: Its vibrant capital city is bisected by the River Thames."
+                    ]
+                },
+                fact: {
+                    fr: "Au Royaume-Uni, aucun endroit n'est situé à plus de 115 km de la mer.",
+                    en: "Nowhere in the United Kingdom is more than 115 km (72 miles) from the sea."
+                }
+            },
+            {
+                id: "greece",
+                type: "country",
+                names: { fr: "Grèce", en: "Greece" },
+                flag: "🇬🇷",
+                capital: "Athènes",
+                pop: "10,4 millions",
+                coords: { lat: 39.0742, lng: 21.8243 },
+                radiusKm: 300,
+                clues: {
+                    fr: [
+                        "Indice 1 : Pays du sud-est de l'Europe comptant des milliers d'îles dans les mers Égée et Ionienne.",
+                        "Indice 2 : Considéré comme le berceau de la démocratie et de la philosophie occidentale.",
+                        "Indice 3 : Lieux des premiers Jeux Olympiques antiques et modernes.",
+                        "Indice 4 : Abrite le Parthénon sur l'Acropole et l'île spectaculaire de Santorin.",
+                        "Indice 5 : Sa capitale historique porte le nom de la déesse de la sagesse."
+                    ],
+                    en: [
+                        "Clue 1: Southeastern European nation with thousands of islands in the Aegean and Ionian seas.",
+                        "Clue 2: Widely regarded as the cradle of Western civilization, philosophy, and democracy.",
+                        "Clue 3: Host of the ancient and first modern Olympic Games.",
+                        "Clue 4: Famous for the Parthenon perched on the Acropolis and the white island of Santorini.",
+                        "Clue 5: Its capital city is named after the ancient goddess of wisdom."
+                    ]
+                },
+                fact: {
+                    fr: "La Grèce compte plus de 6 000 îles et îlots, dont seulement 227 sont habités.",
+                    en: "Greece comprises over 6,000 islands and islets, of which only 227 are inhabited."
+                }
+            },
+            {
+                id: "norway",
+                type: "country",
+                names: { fr: "Norvège", en: "Norway" },
+                flag: "🇳🇴",
+                capital: "Oslo",
+                pop: "5,4 millions",
+                coords: { lat: 60.4720, lng: 8.4689 },
+                radiusKm: 500,
+                clues: {
+                    fr: [
+                        "Indice 1 : Pays scandinave célèbre pour ses côtes spectaculaires découpées par d'immenses fjords.",
+                        "Indice 2 : Connue pour ses aurores boréales et le soleil de minuit en été.",
+                        "Indice 3 : Abrite le point le plus septentrional de l'Europe continentale (Cap Nord).",
+                        "Indice 4 : Grand producteur mondial de saumon et leader des véhicules électriques.",
+                        "Indice 5 : Sa capitale Oslo abrite le Centre du prix Nobel de la paix."
+                    ],
+                    en: [
+                        "Clue 1: Scandinavian nation famous for its dramatic coastline sculpted by deep fjords.",
+                        "Clue 2: Famous for Northern Lights displays and midnight sun in summer.",
+                        "Clue 3: Home to Europe's northernmost continental point (North Cape).",
+                        "Clue 4: Global leader in electric vehicles and wild salmon exports.",
+                        "Clue 5: Its capital city Oslo awards the Nobel Peace Prize annually."
+                    ]
+                },
+                fact: {
+                    fr: "La Norvège possède le littoral le plus découpé au monde, étendu sur plus de 100 000 km.",
+                    en: "Norway's coastline including all fjords and islands stretches over 100,000 km."
+                }
+            },
+            {
+                id: "iceland",
+                type: "country",
+                names: { fr: "Islande", en: "Iceland" },
+                flag: "🇮🇸",
+                capital: "Reykjavik",
+                pop: "380 000",
+                coords: { lat: 64.9631, lng: -19.0208 },
+                radiusKm: 250,
+                clues: {
+                    fr: [
+                        "Indice 1 : Île volcanique située au nord de l'Océan Atlantique, près du cercle polaire.",
+                        "Indice 2 : Connue sous le nom de 'Terre de Glace et de Feu'.",
+                        "Indice 3 : Abrite le geyser original (Geysir), des sources thermales (Blue Lagoon) et des volcans actifs.",
+                        "Indice 4 : Son parlement, l'Althing, fondé en 930, est le plus ancien au monde.",
+                        "Indice 5 : Sa capitale est la plus septentrionale au monde pour un État souverain."
+                    ],
+                    en: [
+                        "Clue 1: Volcanic island nation in the North Atlantic Ocean near the Arctic Circle.",
+                        "Clue 2: Known globally as the 'Land of Fire and Ice'.",
+                        "Clue 3: Famous for erupting geysers, hot geothermal pools, glaciers, and active volcanoes.",
+                        "Clue 4: Its parliament, the Althing established in 930 AD, is the oldest operating in the world.",
+                        "Clue 5: Its capital city is the world's northernmost capital of a sovereign state."
+                    ]
+                },
+                fact: {
+                    fr: "L'Islande ne possède aucune force armée permanente ni de moustiques sur son île.",
+                    en: "Iceland has no standing army and is completely free of mosquitoes."
+                }
+            },
+            {
+                id: "switzerland",
+                type: "country",
+                names: { fr: "Suisse", en: "Switzerland" },
+                flag: "🇨🇭",
+                capital: "Berne",
+                pop: "8,7 millions",
+                coords: { lat: 46.8182, lng: 8.2275 },
+                radiusKm: 180,
+                clues: {
+                    fr: [
+                        "Indice 1 : Pays alpin sans accès à la mer, célèbre pour sa neutralité politique historique.",
+                        "Indice 2 : Possède 4 langues officielles : allemand, français, italien et romanche.",
+                        "Indice 3 : Renommée pour ses montres de précision, ses banques et ses chocolats d'exception.",
+                        "Indice 4 : Abrite le sommet emblématique du Cervin (Matterhorn).",
+                        "Indice 5 : Sa capitale de jure est Berne, tandis que Genève accueille l'ONU."
+                    ],
+                    en: [
+                        "Clue 1: Landlocked Alpine nation famed for historical political neutrality.",
+                        "Clue 2: Has four national official languages: German, French, Italian, and Romansh.",
+                        "Clue 3: Globally famous for luxury watches, banking, and fine chocolate.",
+                        "Clue 4: Home to the iconic pyramid-shaped Matterhorn mountain peak.",
+                        "Clue 5: Its federal de facto capital is Bern, while Geneva hosts the UN."
+                    ]
+                },
+                fact: {
+                    fr: "Le drapeau de la Suisse est l'un des deux seuls drapeaux carrés au monde avec celui du Vatican.",
+                    en: "The Swiss flag is one of only two square national flags in the world (along with Vatican City)."
+                }
+            },
+            {
+                id: "portugal",
+                type: "country",
+                names: { fr: "Portugal", en: "Portugal" },
+                flag: "🇵🇹",
+                capital: "Lisbonne",
+                pop: "10,3 millions",
+                coords: { lat: 39.3999, lng: -8.2245 },
+                radiusKm: 250,
+                clues: {
+                    fr: [
+                        "Indice 1 : Situé à l'extrême ouest de l'Europe continentale, bordé par l'Atlantique.",
+                        "Indice 2 : Pionnier des grandes découvertes maritimes aux XVe et XVIe siècles.",
+                        "Indice 3 : Célèbre pour le chant traditionnel Fado et le vin de Porto.",
+                        "Indice 4 : Producteur majeur de liège et réputé pour ses carreaux d'azulejos.",
+                        "Indice 5 : Sa capitale aux tramways jaunes est située à l'embouchure du Tage."
+                    ],
+                    en: [
+                        "Clue 1: Located on the westernmost tip of mainland Europe along the Atlantic Ocean.",
+                        "Clue 2: Pioneer of global maritime exploration during the Age of Discovery.",
+                        "Clue 3: Renowned for emotional Fado music, Port wine, and Pasteis de Nata pastries.",
+                        "Clue 4: World's top producer of natural cork and decorated Azulejo ceramic tiles.",
+                        "Clue 5: Its capital city is famous for iconic yellow trams on steep cobblestone hills."
+                    ]
+                },
+                fact: {
+                    fr: "Le Portugal est la plus ancienne nation d'Europe aux frontières inchangées depuis 1139.",
+                    en: "Portugal is the oldest nation-state in Europe with borders unchanged since 1139."
+                }
+            },
+            {
+                id: "ireland",
+                type: "country",
+                names: { fr: "Irlande", en: "Ireland" },
+                flag: "🇮🇪",
+                capital: "Dublin",
+                pop: "5,1 millions",
+                coords: { lat: 53.4129, lng: -8.2439 },
+                radiusKm: 220,
+                clues: {
+                    fr: [
+                        "Indice 1 : Île de l'Atlantique Nord surnommée l'Île Émeraude.",
+                        "Indice 2 : Connue pour ses falaises spectaculaires de Moher et la bière Guinness.",
+                        "Indice 3 : Célèbre sa fête nationale du 17 mars (Saint-Patrick) dans le monde entier.",
+                        "Indice 4 : Symbole national représenté par le trèfle à trois feuilles et la harpe gaelique.",
+                        "Indice 5 : Sa capitale Dublin est le berceau d'Oscar Wilde et de James Joyce."
+                    ],
+                    en: [
+                        "Clue 1: North Atlantic island nation nicknamed the 'Emerald Isle'.",
+                        "Clue 2: Famous for dramatic Cliffs of Moher, pub culture, and Guinness stout.",
+                        "Clue 3: Celebrates Saint Patrick's Day globally every March 17th.",
+                        "Clue 4: Official national symbols include the shamrock clover and Gaelic harp.",
+                        "Clue 5: Its historic capital city Dublin was home to literary giants like James Joyce."
+                    ]
+                },
+                fact: {
+                    fr: "L'Irlande est le seul pays au monde à avoir un instrument de musique (la harpe) comme symbole national officiel.",
+                    en: "Ireland is the only country in the world with a musical instrument (harp) as its national symbol."
+                }
+            },
+            {
+                id: "sweden",
+                type: "country",
+                names: { fr: "Suède", en: "Sweden" },
+                flag: "🇸🇪",
+                capital: "Stockholm",
+                pop: "10,5 millions",
+                coords: { lat: 60.1282, lng: 18.6435 },
+                radiusKm: 550,
+                clues: {
+                    fr: [
+                        "Indice 1 : Le plus grand des pays scandinaves par la superficie.",
+                        "Indice 2 : Berceau d'IKEA, de Volvo, de Spotify et du groupe de pop ABBA.",
+                        "Indice 3 : Décerné annuellement à Stockholm : les célèbres Prix Nobel.",
+                        "Indice 4 : Célèbre la tradition du 'Fika' (pause café/brioche à la cannelle).",
+                        "Indice 5 : Sa capitale est bâtie sur 14 îles reliées par 57 ponts."
+                    ],
+                    en: [
+                        "Clue 1: Largest Scandinavian nation by land area.",
+                        "Clue 2: Birthplace of global brands like IKEA, Volvo, Spotify, and pop legends ABBA.",
+                        "Clue 3: Host of the prestigious Nobel Prize ceremonies annually.",
+                        "Clue 4: Famous for the social tradition of 'Fika' coffee breaks with cinnamon buns.",
+                        "Clue 5: Its capital Stockholm spans across 14 islands linked by 57 bridges."
+                    ]
+                },
+                fact: {
+                    fr: "La Suède importe des déchets d'autres pays européens pour alimenter ses centrales électriques écologiques.",
+                    en: "Sweden imports waste from other countries to power its clean waste-to-energy recycling plants."
+                }
+            },
+            {
+                id: "netherlands",
+                type: "country",
+                names: { fr: "Pays-Bas", en: "Netherlands" },
+                flag: "🇳🇱",
+                capital: "Amsterdam",
+                pop: "17,8 millions",
+                coords: { lat: 52.1326, lng: 5.2913 },
+                radiusKm: 150,
+                clues: {
+                    fr: [
+                        "Indice 1 : Pays européen dont environ un tiers du territoire se situe sous le niveau de la mer.",
+                        "Indice 2 : Célèbre pour ses moulins à vent, ses champs de tulipes et son fromage Gouda.",
+                        "Indice 3 : Utilise plus de vélos que d'habitants pour la mobilité quotidienne.",
+                        "Indice 4 : Abrite le plus grand port d'Europe (Rotterdam).",
+                        "Indice 5 : Sa capitale Amsterdam est réputée pour son réseau de canaux bordés de maisons étroites."
+                    ],
+                    en: [
+                        "Clue 1: European country with roughly a third of its land lying below sea level.",
+                        "Clue 2: World-renowned for historic windmills, colorful tulip fields, and Gouda cheese.",
+                        "Clue 3: Has more bicycles than human inhabitants.",
+                        "Clue 4: Home to Europe's largest seaport in Rotterdam.",
+                        "Clue 5: Capital Amsterdam is famous for intricate canal rings and narrow gabled houses."
+                    ]
+                },
+                fact: {
+                    fr: "Les Néerlandais sont statistiquement la population la plus grande en taille moyenne au monde.",
+                    en: "Dutch people are statistically the tallest average population on the planet."
+                }
+            },
+            {
+                id: "croatia",
+                type: "country",
+                names: { fr: "Croatie", en: "Croatia" },
+                flag: "🇭🇷",
+                capital: "Zagreb",
+                pop: "3,8 millions",
+                coords: { lat: 45.1000, lng: 15.2000 },
+                radiusKm: 200,
+                clues: {
+                    fr: [
+                        "Indice 1 : Pays d'Europe du Sud-Est longeant la mer Adriatique avec plus de 1000 îles.",
+                        "Indice 2 : Abrite la spectaculaire cité fortifiée de Dubrovnik et les lacs de Plitvice.",
+                        "Indice 3 : Inventeur de la cravate moderne (originellement portée par les hussards croates).",
+                        "Indice 4 : Berceau de la race de chien Dalmatien originaire de la région de Dalmatie.",
+                        "Indice 5 : Sa capitale Zagreb est située à l'intérieur des terres."
+                    ],
+                    en: [
+                        "Clue 1: Southeastern European nation with a stunning Adriatic coastline of 1,000+ islands.",
+                        "Clue 2: Home to the fortified medieval city of Dubrovnik and Plitvice Lakes National Park.",
+                        "Clue 3: Invented the necktie (cravat) adapted from Croatian mercenaries.",
+                        "Clue 4: Origin of the Dalmatian dog breed named after the coastal Dalmatia region.",
+                        "Clue 5: Its capital Zagreb lies inland in the north of the country."
+                    ]
+                },
+                fact: {
+                    fr: "La ville croate de Hum est enregistrée dans le livre Guinness comme la plus petite ville du monde (30 habitants).",
+                    en: "The Croatian town of Hum holds the Guinness Record for the world's smallest town (30 residents)."
+                }
+            },
+            {
+                id: "monaco",
+                type: "country",
+                names: { fr: "Monaco", en: "Monaco" },
+                flag: "🇲🇨",
+                capital: "Monaco",
+                pop: "39 000",
+                coords: { lat: 43.7384, lng: 7.4246 },
+                radiusKm: 10,
+                clues: {
+                    fr: [
+                        "Indice 1 : Deuxième plus petit État souverain du monde (2 km²) situé sur la Côte d'Azur.",
+                        "Indice 2 : Enclavé par la France et bordé par la mer Méditerranée.",
+                        "Indice 3 : Célèbre pour son Grand Prix de Formule 1 urbain et ses casinos de Monte-Carlo.",
+                        "Indice 4 : Dirigé par la dynastie des Grimaldi (Prince Albert II).",
+                        "Indice 5 : Possède la plus forte densité de millionnaires par habitant au monde."
+                    ],
+                    en: [
+                        "Clue 1: World's second-smallest sovereign state (2 km²) located on the French Riviera.",
+                        "Clue 2: Bordered on three sides by France and on one side by the Mediterranean Sea.",
+                        "Clue 3: Famous for the Formula 1 street Grand Prix and Monte Carlo Casino.",
+                        "Clue 4: Ruled by the House of Grimaldi (Prince Albert II).",
+                        "Clue 5: Boasts the highest concentration of millionaires per capita in the world."
+                    ]
+                },
+                fact: {
+                    fr: "Monaco est si petit qu'il tient entièrement dans Central Park à New York.",
+                    en: "Monaco is so small it could fit inside New York's Central Park with room to spare."
+                }
+            },
+            {
+                id: "vatican",
+                type: "country",
+                names: { fr: "Vatican", en: "Vatican City" },
+                flag: "🇻🇦",
+                capital: "Cité du Vatican",
+                pop: "800",
+                coords: { lat: 41.9029, lng: 12.4534 },
+                radiusKm: 5,
+                clues: {
+                    fr: [
+                        "Indice 1 : Le plus petit État souverain indépendant du monde (0,49 km²).",
+                        "Indice 2 : Entièrement enclavé au cœur de la ville de Rome en Italie.",
+                        "Indice 3 : Siège spirituel et administratif de l'Église Catholique.",
+                        "Indice 4 : Abrite la Basilique Saint-Pierre et la Chapelle Sixtine peinte par Michel-Ange.",
+                        "Indice 5 : Résidence officielle du Pape et gardé par la Garde Suisse."
+                    ],
+                    en: [
+                        "Clue 1: The smallest independent sovereign state in the world (0.49 km²).",
+                        "Clue 2: Entirely landlocked within the city of Rome, Italy.",
+                        "Clue 3: World headquarters and spiritual center of the Roman Catholic Church.",
+                        "Clue 4: Home to St. Peter's Basilica and Michelangelo's Sistine Chapel ceiling.",
+                        "Clue 5: Official residence of the Pope guarded by the Swiss Guard."
+                    ]
+                },
+                fact: {
+                    fr: "Le Vatican a le taux de criminalité par habitant le plus élevé en raison du nombre massif de touristes par rapport aux 800 résidents.",
+                    en: "Vatican City statistically has the highest per-capita crime rate due to tourists vs. 800 residents."
+                }
+            },
+            {
+                id: "venice",
+                type: "city",
+                names: { fr: "Venise", en: "Venice" },
+                flag: "🇮🇹",
+                capital: "Italie",
+                pop: "260 000",
+                coords: { lat: 45.4408, lng: 12.3155 },
+                radiusKm: 25,
+                clues: {
+                    fr: [
+                        "Indice 1 : Cité italienne mythique bâtie sur 118 petites îles dans une lagune de la mer Adriatique.",
+                        "Indice 2 : Entièrement piétonne, sans aucune voiture, le transport se fait en bateau ou à pied.",
+                        "Indice 3 : Célèbre pour son Carnaval avec masques vénitiens raffinés.",
+                        "Indice 4 : Traversée par le Grand Canal et franchie par le pont du Rialto.",
+                        "Indice 5 : Réputée pour ses gondoles guidées par des gondoliers en rayures."
+                    ],
+                    en: [
+                        "Clue 1: Historic Italian city built across 118 small islands in a lagoon of the Adriatic Sea.",
+                        "Clue 2: Completely car-free city where travel is conducted on foot or by watercraft.",
+                        "Clue 3: Famous for its elaborate carnival masks and glassware from Murano.",
+                        "Clue 4: Bisected by the Grand Canal and crossed by the Rialto and Sighs bridges.",
+                        "Clue 5: Iconic worldwide for traditional gondola rides operated by striped gondoliers."
+                    ]
+                },
+                fact: {
+                    fr: "Les bâtiments de Venise reposent sur des millions de pieux en bois enfoncés dans la mud il y a des siècles sans pourrir.",
+                    en: "Venice rests upon millions of wooden poles driven into mud centuries ago that haven't rotted."
+                }
+            },
+
+            // --- AMERICAS ---
+            {
+                id: "canada",
+                type: "country",
+                names: { fr: "Canada", en: "Canada" },
+                flag: "🇨🇦",
+                capital: "Ottawa",
+                pop: "40 millions",
+                coords: { lat: 56.1304, lng: -106.3468 },
+                radiusKm: 1200,
+                clues: {
+                    fr: [
+                        "Indice 1 : Deuxième plus grand pays du monde par la superficie totale.",
+                        "Indice 2 : Possède le plus long littoral côtier au monde bordé par 3 océans.",
+                        "Indice 3 : Arborant une feuille d'érable rouge au centre de son drapeau.",
+                        "Indice 4 : Célèbre pour le sirop d'érable, le hockey sur glace et les Chutes du Niagara.",
+                        "Indice 5 : Sa capitale fédérale est Ottawa et ses plus grandes villes sont Toronto et Montréal."
+                    ],
+                    en: [
+                        "Clue 1: Second-largest country in the world by total land area.",
+                        "Clue 2: Has the world's longest coastline bordering three oceans.",
+                        "Clue 3: Features a red maple leaf on its national flag.",
+                        "Clue 4: Famous for maple syrup, ice hockey, vast wilderness, and Niagara Falls.",
+                        "Clue 5: Capital city is Ottawa, while Toronto and Montreal are major urban centers."
+                    ]
+                },
+                fact: {
+                    fr: "Le Canada possède plus de lacs que l'ensemble du reste du monde réuni.",
+                    en: "Canada has more lakes than all the rest of the world's countries combined."
+                }
+            },
+            {
+                id: "usa",
+                type: "country",
+                names: { fr: "États-Unis", en: "United States" },
+                flag: "🇺🇸",
+                capital: "Washington D.C.",
+                pop: "335 millions",
+                coords: { lat: 37.0902, lng: -95.7129 },
+                radiusKm: 1200,
+                clues: {
+                    fr: [
+                        "Indice 1 : République fédérale composée de 50 États s'étendant de l'Atlantique au Pacifique.",
+                        "Indice 2 : Première puissance économique et militaire mondiale.",
+                        "Indice 3 : Abrite Hollywood, la Statue de la Liberté et le Grand Canyon.",
+                        "Indice 4 : Son drapeau comporte 50 étoiles blanches et 13 rayures rouges et blanches.",
+                        "Indice 5 : Sa capitale politique abrite la Maison-Blanche."
+                    ],
+                    en: [
+                        "Clue 1: Federal republic of 50 states spanning North America from Atlantic to Pacific.",
+                        "Clue 2: World's largest economy by nominal GDP and cultural powerhouse.",
+                        "Clue 3: Home to Hollywood, the Statue of Liberty, Silicon Valley, and Grand Canyon.",
+                        "Clue 4: Flag features 50 white stars representing states and 13 stripes.",
+                        "Clue 5: Its capital city hosts the White House and Capitol Building."
+                    ]
+                },
+                fact: {
+                    fr: "L'État d'Alaska possède la plus longue côte de tous les États américains.",
+                    en: "The state of Alaska has a longer coastline than all other 49 U.S. states combined."
+                }
+            },
+            {
+                id: "brazil",
+                type: "country",
+                names: { fr: "Brésil", en: "Brazil" },
+                flag: "🇧🇷",
+                capital: "Brasília",
+                pop: "215 millions",
+                coords: { lat: -14.2350, lng: -51.9253 },
+                radiusKm: 1200,
+                clues: {
+                    fr: [
+                        "Indice 1 : Plus grand pays d'Amérique du Sud et d'Amérique Latine.",
+                        "Indice 2 : Seul pays des Amériques dont la langue officielle est le portugais.",
+                        "Indice 3 : Abrite la plus grande partie du bassin et de la forêt de l'Amazonie.",
+                        "Indice 4 : Célèbre pour la samba, le Carnaval de Rio et ses 5 victoires en Coupe du Monde de football.",
+                        "Indice 5 : Sa capitale planifiée en forme d'avion est Brasília."
+                    ],
+                    en: [
+                        "Clue 1: Largest country in South America and Latin America.",
+                        "Clue 2: The only nation in the Americas with Portuguese as its official language.",
+                        "Clue 3: Home to the majority of the Amazon Rainforest and Amazon River basin.",
+                        "Clue 4: World famous for Samba, Rio Carnival, and 5 FIFA World Cup victories.",
+                        "Clue 5: Its planned modernist capital city built in the shape of an airplane is Brasília."
+                    ]
+                },
+                fact: {
+                    fr: "Le Brésil est le plus grand producteur mondial de café depuis plus de 150 ans.",
+                    en: "Brazil has been the world's largest producer of coffee for over 150 consecutive years."
+                }
+            },
+            {
+                id: "peru",
+                type: "country",
+                names: { fr: "Pérou", en: "Peru" },
+                flag: "🇵🇪",
+                capital: "Lima",
+                pop: "34 millions",
+                coords: { lat: -9.1900, lng: -75.0152 },
+                radiusKm: 600,
+                clues: {
+                    fr: [
+                        "Indice 1 : Pays de la côte ouest de l'Amérique du Sud traversé par la cordillère des Andes.",
+                        "Indice 2 : Berceau historique de l'antique Empire Inca.",
+                        "Indice 3 : Abrite le lac navigable le plus haut du monde (Lac Titicaca).",
+                        "Indice 4 : Célèbre pour la citadelle sacrée du Machu Picchu et les géoglyphes de Nazca.",
+                        "Indice 5 : Sa capitale côtière est Lima, réputée pour sa gastronomie et le ceviche."
+                    ],
+                    en: [
+                        "Clue 1: South American nation on the Pacific coast crossed by the Andes mountains.",
+                        "Clue 2: Heartland of the ancient Inca Empire.",
+                        "Clue 3: Home to Lake Titicaca, the highest navigable lake in the world.",
+                        "Clue 4: Famous for the mountain citadel of Machu Picchu and Nazca Lines.",
+                        "Clue 5: Its coastal capital Lima is celebrated worldwide for Ceviche cuisine."
+                    ]
+                },
+                fact: {
+                    fr: "Le Pérou est le berceau de la pomme de terre, cultivée avec plus de 3 000 variétés locales.",
+                    en: "Peru is the native birthplace of the potato, cultivating over 3,000 unique native varieties."
+                }
+            },
+            {
+                id: "mexico",
+                type: "country",
+                names: { fr: "Mexique", en: "Mexico" },
+                flag: "🇲🇽",
+                capital: "Mexico",
+                pop: "128 millions",
+                coords: { lat: 23.6345, lng: -102.5528 },
+                radiusKm: 750,
+                clues: {
+                    fr: [
+                        "Indice 1 : Pays d'Amérique du Nord situé au sud des États-Unis.",
+                        "Indice 2 : Berceau des grandes civilisations Maya et Aztèque.",
+                        "Indice 3 : Célèbre pour la tequila, les mariachis, les tacos et la fête des Morts (Día de los Muertos).",
+                        "Indice 4 : Abrite la pyramide maya de Chichén Itzá sur la péninsule du Yucatán.",
+                        "Indice 5 : Sa capitale gigantesque a été bâtie sur les ruines de l'ancienne Tenochtitlan."
+                    ],
+                    en: [
+                        "Clue 1: North American nation located directly south of the United States.",
+                        "Clue 2: Birthplace of ancient Aztec and Maya civilizations.",
+                        "Clue 3: Renowned for Tequila, Mariachi music, tacos, and Día de los Muertos.",
+                        "Clue 4: Home to the Mayan pyramid of Chichen Itza in the Yucatan peninsula.",
+                        "Clue 5: Its sprawling capital city was built atop the ancient Aztec capital Tenochtitlan."
+                    ]
+                },
+                fact: {
+                    fr: "Le chocolat trouve ses origines au Mexique, où les Mayas et Aztèques le consommaient en boisson pimentée.",
+                    en: "Chocolate originated in Mexico, where ancient Mayans and Aztecs consumed it as a spicy drink."
+                }
+            },
+            {
+                id: "argentina",
+                type: "country",
+                names: { fr: "Argentine", en: "Argentina" },
+                flag: "🇦🇷",
+                capital: "Buenos Aires",
+                pop: "46 millions",
+                coords: { lat: -38.4161, lng: -63.6167 },
+                radiusKm: 900,
+                clues: {
+                    fr: [
+                        "Indice 1 : Deuxième plus grand pays d'Amérique du Sud, occupant la majeure partie du Cône Sud.",
+                        "Indice 2 : Abrite le point culminant des Amériques (l'Aconcagua, 6 961 m).",
+                        "Indice 3 : Berceau de la danse du Tango et de la culture des cow-boys guchos.",
+                        "Indice 4 : Réputée pour ses viandes grillées (asado), le maté et la terre de Patagonie.",
+                        "Indice 5 : Sa capitale européenne sur le Río de la Plata est Buenos Aires."
+                    ],
+                    en: [
+                        "Clue 1: Second-largest country in South America, occupying most of the Southern Cone.",
+                        "Clue 2: Home to the highest peak in the Western Hemisphere (Mount Aconcagua at 6,961m).",
+                        "Clue 3: Birthplace of Tango dance and the rustic Gaucho cowboy culture.",
+                        "Clue 4: Famous for Asado beef barbecues, Yerba Mate, and wild Patagonia glaciers.",
+                        "Clue 5: Its vibrant European-styled capital on the Rio de la Plata is Buenos Aires."
+                    ]
+                },
+                fact: {
+                    fr: "L'Argentine a été le premier pays au monde à utiliser les empreintes digitales pour l'identification criminelle en 1892.",
+                    en: "Argentina was the first country in the world to adopt fingerprinting for criminal identification in 1892."
+                }
+            },
+            {
+                id: "cuba",
+                type: "country",
+                names: { fr: "Cuba", en: "Cuba" },
+                flag: "🇨🇺",
+                capital: "La Havane",
+                pop: "11 millions",
+                coords: { lat: 21.5218, lng: -77.7812 },
+                radiusKm: 350,
+                clues: {
+                    fr: [
+                        "Indice 1 : Plus grande île des Caraïbes située à l'entrée du Golfe du Mexique.",
+                        "Indice 2 : Célèbre pour ses voitures américaines de collection des années 1950 en circulation.",
+                        "Indice 3 : Renommée pour ses cigares de qualité (Habanos), son rhum et la musique Salsa.",
+                        "Indice 4 : Marquée par la Révolution de 1959 menée par Fidel Castro et Che Guevara.",
+                        "Indice 5 : Sa capitale historique avec le boulevard Malecon est La Havane."
+                    ],
+                    en: [
+                        "Clue 1: Largest island in the Caribbean situated at the entrance of the Gulf of Mexico.",
+                        "Clue 2: Famous for vintage 1950s American cars filling city streets.",
+                        "Clue 3: World famous for hand-rolled cigars, fine rum, and Salsa music.",
+                        "Clue 4: Defined by the 1959 revolution led by Fidel Castro and Che Guevara.",
+                        "Clue 5: Its historic capital featuring the iconic Malecon waterfront is Havana."
+                    ]
+                },
+                fact: {
+                    fr: "De haut, l'île de Cuba ressemble à la forme d'un crocodile, ce qui lui vaut le surnom d'El Cocodrilo.",
+                    en: "Viewed from above, the main island of Cuba resembles an alligator, earning it the nickname 'El Caimán'."
+                }
+            },
+            {
+                id: "new-york",
+                type: "city",
+                names: { fr: "New York", en: "New York City" },
+                flag: "🇺🇸",
+                capital: "États-Unis",
+                pop: "8,8 millions",
+                coords: { lat: 40.7128, lng: -74.0060 },
+                radiusKm: 35,
+                clues: {
+                    fr: [
+                        "Indice 1 : Ville la plus peuplée des États-Unis surnommée 'La Grande Pomme'.",
+                        "Indice 2 : Divisée en 5 arrondissements : Manhattan, Brooklyn, Queens, Bronx et Staten Island.",
+                        "Indice 3 : Abrite le siège des Nations Unies et la bourse de Wall Street.",
+                        "Indice 4 : Célèbre pour Central Park, Times Square et les spectacles de Broadway.",
+                        "Indice 5 : Accueille la Statue de la Liberté sur Ellis Island."
+                    ],
+                    en: [
+                        "Clue 1: Most populous city in the United States, globally nicknamed 'The Big Apple'.",
+                        "Clue 2: Divided into 5 boroughs: Manhattan, Brooklyn, Queens, the Bronx, and Staten Island.",
+                        "Clue 3: Home to United Nations headquarters and the Wall Street financial district.",
+                        "Clue 4: Famous for Central Park, neon-lit Times Square, and Broadway theaters.",
+                        "Clue 5: Overlooked by the iconic Statue of Liberty in New York Harbor."
+                    ]
+                },
+                fact: {
+                    fr: "Plus de 800 langues sont parlées à New York, ce qui en fait la ville la plus linguistiquement diverse au monde.",
+                    en: "More than 800 languages are spoken in New York City, making it the most linguistically diverse city."
+                }
+            },
+            {
+                id: "easter-island",
+                type: "city",
+                names: { fr: "Île de Pâques (Rapa Nui)", en: "Easter Island (Rapa Nui)" },
+                flag: "🇨🇱",
+                capital: "Territoire du Chili",
+                pop: "7 700",
+                coords: { lat: -27.1127, lng: -109.3497 },
+                radiusKm: 25,
+                clues: {
+                    fr: [
+                        "Indice 1 : Île polynésienne extrêmement isolée dans le sud de l'Océan Pacifique.",
+                        "Indice 2 : Territoire spécial rattaché au Chili, situé à 3 500 km des côtes sud-américaines.",
+                        "Indice 3 : Célèbre pour ses 900 gigantesques statues monolithiques en pierre appelées Moaï.",
+                        "Indice 4 : Découverte par les Européens le jour du dimanche de Pâques en 1722.",
+                        "Indice 5 : Nommée d'origine Rapa Nui par son peuple autochtone."
+                    ],
+                    en: [
+                        "Clue 1: Extremely remote Polynesian island located in the Southeastern Pacific Ocean.",
+                        "Clue 2: Special territory governed by Chile, lying 3,500 km off the South American mainland.",
+                        "Clue 3: Famous worldwide for nearly 900 monumental stone statues called Moai.",
+                        "Clue 4: Named by Dutch explorer Jacob Roggeveen who arrived on Easter Sunday 1722.",
+                        "Clue 5: Known natively as Rapa Nui to its indigenous Polynesian population."
+                    ]
+                },
+                fact: {
+                    fr: "Les statues Moaï possèdent des corps complets enfouis sous terre sous leurs têtes colossales.",
+                    en: "The colossal Moai stone heads actually have full bodies buried beneath the soil."
+                }
+            },
+
+            // --- ASIA & MIDDLE EAST ---
+            {
+                id: "china",
+                type: "country",
+                names: { fr: "Chine", en: "China" },
+                flag: "🇨🇳",
+                capital: "Pékin",
+                pop: "1,41 milliard",
+                coords: { lat: 35.8617, lng: 104.1954 },
+                radiusKm: 1200,
+                clues: {
+                    fr: [
+                        "Indice 1 : Plus grand pays d'Asie de l'Est et civilisations parmi les plus anciennes.",
+                        "Indice 2 : Deuxième pays le plus peuplé du monde et 2e puissance économique.",
+                        "Indice 3 : Abrite la Grande Muraille, la Cité Interdite et l'armée de terre cuite de Xi'an.",
+                        "Indice 4 : Patrie du panda géant, de la soie, de la porcelaine et du thé.",
+                        "Indice 5 : Sa capitale est Pékin (Beijing) et sa capitale financière est Shanghai."
+                    ],
+                    en: [
+                        "Clue 1: East Asian giant with continuous historical civilization spanning over 4,000 years.",
+                        "Clue 2: Second most populous country and second largest global economy.",
+                        "Clue 3: Home to the Great Wall, the Forbidden City, and Terracotta Army.",
+                        "Clue 4: Native habitat of the giant panda, tea culture, silk, and porcelain.",
+                        "Clue 5: Capital city is Beijing, while Shanghai is its massive mega-financial hub."
+                    ]
+                },
+                fact: {
+                    fr: "La Grande Muraille de Chine mesure au total plus de 21 000 km de longueur avec l'ensemble de ses bifurcations.",
+                    en: "The total length of all sections of the Great Wall of China stretches over 21,000 km."
+                }
+            },
+            {
+                id: "india",
+                type: "country",
+                names: { fr: "Inde", en: "India" },
+                flag: "🇮🇳",
+                capital: "New Delhi",
+                pop: "1,43 milliard",
+                coords: { lat: 20.5937, lng: 78.9629 },
+                radiusKm: 1000,
+                clues: {
+                    fr: [
+                        "Indice 1 : Pays le plus peuplé de la planète situé en Asie du Sud.",
+                        "Indice 2 : Berceau des religions Hindouisme, Bouddhisme, Jaïnisme et Sikhisme.",
+                        "Indice 3 : Abrite le somptueux mausolée en marbre blanc du Taj Mahal à Agra.",
+                        "Indice 4 : Célèbre pour son industrie cinématographique Bollywood, le curry et le fleuve Gange.",
+                        "Indice 5 : Sa capitale est New Delhi et sa plus grande ville est Mumbai."
+                    ],
+                    en: [
+                        "Clue 1: The most populous country on Earth, dominating the South Asian subcontinent.",
+                        "Clue 2: Birthplace of major world religions: Hinduism, Buddhism, Jainism, and Sikhism.",
+                        "Clue 3: Home to the breathtaking white marble Taj Mahal in Agra.",
+                        "Clue 4: Famous for Bollywood cinema, aromatic spices, yoga, and the sacred Ganges river.",
+                        "Clue 5: Its capital is New Delhi, while financial capital is Mumbai."
+                    ]
+                },
+                fact: {
+                    fr: "L'Inde possède le réseau postal le plus étendu du monde, incluant un bureau de poste flottant sur le lac Dal.",
+                    en: "India operates the world's largest postal network, including a floating post office on Dal Lake."
+                }
+            },
+            {
+                id: "thailand",
+                type: "country",
+                names: { fr: "Thaïlande", en: "Thailand" },
+                flag: "🇹🇭",
+                capital: "Bangkok",
+                pop: "71 millions",
+                coords: { lat: 15.8700, lng: 100.9925 },
+                radiusKm: 500,
+                clues: {
+                    fr: [
+                        "Indice 1 : Royaume d'Asie du Sud-Est autrefois connu sous le nom de Siam.",
+                        "Indice 2 : Seul pays d'Asie du Sud-Est à n'avoir jamais été colonisé par une puissance européenne.",
+                        "Indice 3 : Célèbre pour ses temples bouddhistes dorés (Wats), ses plages tropicales et le Muay Thai.",
+                        "Indice 4 : Célèbre le festival de l'eau de Songkran pour le nouvel an.",
+                        "Indice 5 : Sa capitale animée a pour nom local Krung Thep (Bangkok)."
+                    ],
+                    en: [
+                        "Clue 1: Southeast Asian kingdom formerly known around the world as Siam.",
+                        "Clue 2: The only country in Southeast Asia that was never colonized by a European power.",
+                        "Clue 3: Famous for ornate golden Buddhist temples, tropical islands, and Muay Thai boxing.",
+                        "Clue 4: Celebrates Songkran water festival for its traditional New Year.",
+                        "Clue 5: Its bustling capital city is Bangkok (locally called Krung Thep)."
+                    ]
+                },
+                fact: {
+                    fr: "Le nom rituel complet de la ville de Bangkok compte 168 lettres, détenant le record de la plus longue constitution de nom de lieu au monde.",
+                    en: "Bangkok's full ceremonial ceremonial name has 168 letters, holding the Guinness record for longest place name."
+                }
+            },
+            {
+                id: "south-korea",
+                type: "country",
+                names: { fr: "Corée du Sud", en: "South Korea" },
+                flag: "🇰🇷",
+                capital: "Séoul",
+                pop: "51 millions",
+                coords: { lat: 35.9078, lng: 127.7669 },
+                radiusKm: 300,
+                clues: {
+                    fr: [
+                        "Indice 1 : Pays occupant la moitié sud de la péninsule coréenne en Asie de l'Est.",
+                        "Indice 2 : Leader technologique mondial (Samsung) et pionnier de l'internet à très haut débit.",
+                        "Indice 3 : Phénomène culturel mondial connu sous le nom de 'Hallyu' (K-Pop, K-Dramas, Squid Game).",
+                        "Indice 4 : Célèbre pour sa cuisine épicée à base de Kimchi et de barbecue coréen.",
+                        "Indice 5 : Sa capitale ultra-moderne est Séoul."
+                    ],
+                    en: [
+                        "Clue 1: East Asian nation occupying the southern half of the Korean Peninsula.",
+                        "Clue 2: Global technology powerhouse home to tech giants like Samsung and Hyundai.",
+                        "Clue 3: Cultural phenomenon known as the 'Korean Wave' (K-Pop, K-Dramas, Cinema).",
+                        "Clue 4: Renowned cuisine featuring fermented Kimchi, Gochujang, and Korean BBQ.",
+                        "Clue 5: Its sprawling futuristic capital city is Seoul."
+                    ]
+                },
+                fact: {
+                    fr: "En Corée du Sud, l'île de Jeju abrite la structure des 'Haenyeo', des femmes apnéistes seniors qui plongent sans bouteilles.",
+                    en: "South Korea's Jeju Island is home to the 'Haenyeo', legendary female free-divers who dive without oxygen gear."
+                }
+            },
+            {
+                id: "uae",
+                type: "country",
+                names: { fr: "Émirats Arabes Unis", en: "United Arab Emirates" },
+                flag: "🇦🇪",
+                capital: "Abou Dabi",
+                pop: "10 millions",
+                coords: { lat: 23.4241, lng: 53.8478 },
+                radiusKm: 250,
+                clues: {
+                    fr: [
+                        "Indice 1 : Fédération de 7 émirats située dans l'est de la péninsule Arabique.",
+                        "Indice 2 : Métamorphosée en quelques décennies grâce aux réserves de pétrole et au commerce.",
+                        "Indice 3 : Abrite la plus haute tour du monde (Burj Khalifa, 828 mètres) à Dubaï.",
+                        "Indice 4 : Abrite le musée du Louvre Abou Dabi et des îles artificielles en forme de palmier.",
+                        "Indice 5 : Sa capitale fédérale est Abou Dabi."
+                    ],
+                    en: [
+                        "Clue 1: Federation of 7 emirates situated on the eastern Arabian Peninsula.",
+                        "Clue 2: Transformed from desert fishing ports to ultra-modern global hubs via oil and trade.",
+                        "Clue 3: Home to the world's tallest building (Burj Khalifa at 828m) in Dubai.",
+                        "Clue 4: Features the Louvre Abu Dhabi museum and man-made Palm Islands.",
+                        "Clue 5: Its federal capital city is Abu Dhabi."
+                    ]
+                },
+                fact: {
+                    fr: "Aux Émirats Arabes Unis, la police de Dubaï patrouille en supercars de luxe (Bugatti, Lamborghini, Ferrari).",
+                    en: "Dubai Police operates a high-speed fleet of luxury supercars including Bugattis and Lamborghinis."
+                }
+            },
+            {
+                id: "petra",
+                type: "city",
+                names: { fr: "Pétra (Jordanie)", en: "Petra (Jordan)" },
+                flag: "🇯🇴",
+                capital: "Jordanie",
+                pop: "Site archéologique",
+                coords: { lat: 30.3285, lng: 35.4444 },
+                radiusKm: 15,
+                clues: {
+                    fr: [
+                        "Indice 1 : Ancienne cité antique sculptée à même la roche gréseuse rose dans le désert de Jordanie.",
+                        "Indice 2 : Capitale du royaume des Nabatéens fondée dès le IVe siècle avant J.C.",
+                        "Indice 3 : Accessible uniquement en traversant le Siq, un étroit défilé rocheux d'un kilomètre.",
+                        "Indice 4 : Célèbre monument appelé Le Trésor (Al-Khazneh) apparu dans Indiana Jones.",
+                        "Indice 5 : Classée parmi les 7 Nouvelles Merveilles du Monde."
+                    ],
+                    en: [
+                        "Clue 1: Ancient archaeological city carved directly into pink sandstone cliffs in the Jordanian desert.",
+                        "Clue 2: Historical capital of the Nabataean Kingdom established around the 4th century BC.",
+                        "Clue 3: Reached by walking through the Siq, a narrow 1-km canyon winding gorge.",
+                        "Clue 4: Famous for the Treasury (Al-Khazneh) facade featured in Indiana Jones.",
+                        "Clue 5: Voted one of the New 7 Wonders of the World."
+                    ]
+                },
+                fact: {
+                    fr: "Seulement 15% de la cité antique de Pétra a été mise au jour par les archéologues, 85% reste enfoui.",
+                    en: "Only an estimated 15% of the ancient city of Petra has been excavated by archaeologists."
+                }
+            },
+
+            // --- AFRICA ---
+            {
+                id: "egypt",
+                type: "country",
+                names: { fr: "Égypte", en: "Egypt" },
+                flag: "🇪🇬",
+                capital: "Le Caire",
+                pop: "109 millions",
+                coords: { lat: 26.8206, lng: 30.8025 },
+                radiusKm: 600,
+                clues: {
+                    fr: [
+                        "Indice 1 : Pays transcontinental reliant le nord-est de l'Afrique à l'Asie par le Sinaï.",
+                        "Indice 2 : Traversé du sud au nord par le fleuve Nil qui fait vivre toute sa population.",
+                        "Indice 3 : Berceau de la civilisation des Pharaons, des hiéroglyphes et des mummies.",
+                        "Indice 4 : Abrite le canal de Suez, les pyramides de Gizeh et le Grand Sphinx.",
+                        "Indice 5 : Sa capitale tentaculaire est Le Caire."
+                    ],
+                    en: [
+                        "Clue 1: Transcontinental country linking northeast Africa to Asia via the Sinai Peninsula.",
+                        "Clue 2: Life blood of the nation revolves entirely along the fertile Nile River valley.",
+                        "Clue 3: Heartland of the ancient Pharaohs civilization, mummies, and hieroglyphs.",
+                        "Clue 4: Home to the Suez Canal, Great Pyramids of Giza, and Great Sphinx.",
+                        "Clue 5: Its massive megacity capital is Cairo."
+                    ]
+                },
+                fact: {
+                    fr: "La Grande Pyramide de Gizeh est la seule des 7 merveilles du monde antique encore debout.",
+                    en: "The Great Pyramid of Giza is the oldest and only surviving wonder of the ancient world."
+                }
+            },
+            {
+                id: "south-africa",
+                type: "country",
+                names: { fr: "Afrique du Sud", en: "South Africa" },
+                flag: "🇿🇦",
+                capital: "Pretoria / Le Cap / Bloemfontein",
+                pop: "60 millions",
+                coords: { lat: -30.5595, lng: 22.9375 },
+                radiusKm: 750,
+                clues: {
+                    fr: [
+                        "Indice 1 : Pays situé à la pointe australe du continent africain.",
+                        "Indice 2 : Surnommée la 'Nation Arc-en-Ciel' pour sa diversité culturelle et ses 12 langues officielles.",
+                        "Indice 3 : Marquée par l'histoire de Nelson Mandela et la fin de l'Apartheid en 1994.",
+                        "Indice 4 : Réputée pour le parc national Kruger (Big Five) et la montagne de la Table.",
+                        "Indice 5 : Possède 3 capitales officielles (Pretoria, Le Cap, Bloemfontein)."
+                    ],
+                    en: [
+                        "Clue 1: Nation located at the southernmost tip of the African continent.",
+                        "Clue 2: Nicknamed the 'Rainbow Nation' boasting 12 official languages.",
+                        "Clue 3: Defined by Nelson Mandela's legacy and the end of Apartheid in 1994.",
+                        "Clue 4: Famous for Kruger National Park safaris (Big 5) and Table Mountain.",
+                        "Clue 5: Uniquely has three official capitals (Pretoria, Cape Town, Bloemfontein)."
+                    ]
+                },
+                fact: {
+                    fr: "L'Afrique du Sud est le seul pays au monde à posséder trois capitales officielles.",
+                    en: "South Africa is the only country in the world with three official capital cities."
+                }
+            },
+            {
+                id: "madagascar",
+                type: "country",
+                names: { fr: "Madagascar", en: "Madagascar" },
+                flag: "🇲🇬",
+                capital: "Antananarivo",
+                pop: "29 millions",
+                coords: { lat: -18.7669, lng: 46.8691 },
+                radiusKm: 550,
+                clues: {
+                    fr: [
+                        "Indice 1 : Grande île située dans l'Océan Indien au large des côtes du Mozambique.",
+                        "Indice 2 : Quatrième plus grande île au monde.",
+                        "Indice 3 : Plus de 90% de sa faune et flore sauvage est unique et endémique au monde.",
+                        "Indice 4 : Célèbre pour ses baobabs centenaires et ses lémuriens.",
+                        "Indice 5 : Sa capitale perchée sur les hautes terres est Antananarivo (Tana)."
+                    ],
+                    en: [
+                        "Clue 1: Huge island nation in the Indian Ocean off the coast of East Africa.",
+                        "Clue 2: The fourth-largest island on Earth.",
+                        "Clue 3: Over 90% of its wildlife and plants exist nowhere else on the planet.",
+                        "Clue 4: World famous for wild lemurs, chameleon species, and Avenue of the Baobabs.",
+                        "Clue 5: Its high-altitude capital city is Antananarivo."
+                    ]
+                },
+                fact: {
+                    fr: "Madagascar s'est séparée du continent africain il y a environ 88 millions d'années, créant un laboratoire d'évolution unique.",
+                    en: "Madagascar split from Africa 88 million years ago, allowing unique evolutionary flora & fauna."
+                }
+            },
+            {
+                id: "kenya",
+                type: "country",
+                names: { fr: "Kenya", en: "Kenya" },
+                flag: "🇰🇪",
+                capital: "Nairobi",
+                pop: "54 millions",
+                coords: { lat: -1.2921, lng: 36.8219 },
+                radiusKm: 450,
+                clues: {
+                    fr: [
+                        "Indice 1 : Pays d'Afrique de l'Est traversé par l'Équateur et bordé par l'Océan Indien.",
+                        "Indice 2 : Berceau mondial des coureurs de fond de marathon.",
+                        "Indice 3 : Lieu de la Grande Migration annuelle des gnous dans la réserve du Maasai Mara.",
+                        "Indice 4 : Peuplé notamment par le célèbre peuple guerrier Maasai.",
+                        "Indice 5 : Sa capitale animée est Nairobi."
+                    ],
+                    en: [
+                        "Clue 1: East African nation bisected by the Equator and bordering the Indian Ocean.",
+                        "Clue 2: Global heartland of elite long-distance marathon runners.",
+                        "Clue 3: Host of the epic annual Great Wildebeest Migration in Maasai Mara reserve.",
+                        "Clue 4: Home to the iconic red-robed Maasai warrior community.",
+                        "Clue 5: Its sprawling modern capital city is Nairobi."
+                    ]
+                },
+                fact: {
+                    fr: "Nairobi est la seule capitale au monde à abriter un parc national de faune sauvage (lions, girafes) aux portes de ses gratte-ciel.",
+                    en: "Nairobi is the world's only capital city containing a game reserve national park with free-roaming lions."
+                }
+            },
+
+            // --- OCEANIA & ANTARCTICA ---
+            {
+                id: "australia",
+                type: "country",
+                names: { fr: "Australie", en: "Australia" },
+                flag: "🇦🇺",
+                capital: "Canberra",
+                pop: "26 millions",
+                coords: { lat: -25.2744, lng: 133.7751 },
+                radiusKm: 1500,
+                clues: {
+                    fr: [
+                        "Indice 1 : Seul pays au monde à occuper un continent entier à lui seul.",
+                        "Indice 2 : Abrite la Grande Barrière de Corail et le monolithe sacré d'Uluru (Ayers Rock).",
+                        "Indice 3 : Faune marsupiale unique comprenant le kangourou, le koala et le wombat.",
+                        "Indice 4 : Son intérieur désertique immense est appelé 'l'Outback'.",
+                        "Indice 5 : Sa capitale planifiée est Canberra (et non Sydney ou Melbourne)."
+                    ],
+                    en: [
+                        "Clue 1: The only country in the world that governs an entire continent.",
+                        "Clue 2: Home to the Great Barrier Reef and the sacred red monolith Uluru (Ayers Rock).",
+                        "Clue 3: Unique marsupial wildlife including kangaroos, koalas, and wombats.",
+                        "Clue 4: Vast arid desert hinterland is known globally as 'The Outback'.",
+                        "Clue 5: Its bush capital city is Canberra (chosen over Sydney and Melbourne)."
+                    ]
+                },
+                fact: {
+                    fr: "L'Australie compte 10 fois plus de kangourous que d'habitants humains.",
+                    en: "Australia is home to roughly twice as many kangaroos as human residents."
+                }
+            },
+            {
+                id: "new-zealand",
+                type: "country",
+                names: { fr: "Nouvelle-Zélande", en: "New Zealand" },
+                flag: "🇳🇿",
+                capital: "Wellington",
+                pop: "5,1 millions",
+                coords: { lat: -40.9006, lng: 174.8860 },
+                radiusKm: 600,
+                clues: {
+                    fr: [
+                        "Indice 1 : État insulaire du sud-ouest du Pacifique composé de deux îles principales (Nord et Sud).",
+                        "Indice 2 : Nommée Aotearoa ('Le pays du long nuage blanc') en langue maorie.",
+                        "Indice 3 : Célèbre équipe de rugby des All Blacks exécutant la danse rituelle du Haka.",
+                        "Indice 4 : Lieu de tournage des films de la trilogie du Seigneur des Anneaux.",
+                        "Indice 5 : Sa capitale est Wellington et son oiseau emblématique incapable de voler est le kiwi."
+                    ],
+                    en: [
+                        "Clue 1: Southwestern Pacific island nation comprising the North and South Islands.",
+                        "Clue 2: Native Maori name is Aotearoa ('Land of the Long White Cloud').",
+                        "Clue 3: World famous for the All Blacks rugby team and their traditional Haka dance.",
+                        "Clue 4: Filming location for the Lord of the Rings movie trilogy.",
+                        "Clue 5: Capital city is Wellington, and its flightless national bird symbol is the Kiwi."
+                    ]
+                },
+                fact: {
+                    fr: "La Nouvelle-Zélande fut le tout premier pays au monde à accorder le droit de vote aux femmes en 1893.",
+                    en: "New Zealand was the very first country in the world to grant women the right to vote in 1893."
+                }
+            },
+            {
+                id: "mcmurdo",
+                type: "city",
+                names: { fr: "Base McMurdo (Antarctique)", en: "McMurdo Station (Antarctica)" },
+                flag: "🇦🇶",
+                capital: "Territoire Antarctique",
+                pop: "1 000 (été)",
+                coords: { lat: -77.8460, lng: 166.6682 },
+                radiusKm: 50,
+                clues: {
+                    fr: [
+                        "Indice 1 : La plus grande communauté d'êtres humains implantée sur le continent Antarctique.",
+                        "Indice 2 : Station de recherche scientifique américaine située sur l'île Ross.",
+                        "Indice 3 : Fonctionne comme une véritable petite ville glaciaire avec hébergements, héliport et serres.",
+                        "Indice 4 : Températures hivernales descendant fréquemment sous les -30°C.",
+                        "Indice 5 : Porte d'entrée principale vers le Pôle Sud géographique."
+                    ],
+                    en: [
+                        "Clue 1: The largest human community station situated on the frozen continent of Antarctica.",
+                        "Clue 2: United States Antarctic research facility located on Ross Island.",
+                        "Clue 3: Operates like a self-contained town with dorms, heliport, and scientific labs.",
+                        "Clue 4: Winter temperatures routinely plunge far below -30°C (-22°F).",
+                        "Clue 5: Main logistics hub for expeditions heading to the geographic South Pole."
+                    ]
+                },
+                fact: {
+                    fr: "L'Antarctique est le continent le plus froid, le plus venté, mais aussi le désert le plus sec de la planète.",
+                    en: "Antarctica is technically the largest and driest desert on Earth despite holding 70% of world fresh water."
+                }
+            }
+        ];
+           
+            {
+                id: "nauru",
+                type: "country",
+                names: { fr: "Nauru", en: "Nauru" },
+                flag: "🇳🇷",
+                capital: "Yaren (de facto)",
+                pop: "10 800",
+                coords: { lat: -0.5228, lng: 166.9315 },
+                radiusKm: 25, // Territorial radius threshold
+                clues: {
+                    fr: [
+                        "Indice 1 : C'est le plus petit état insulaire indépendant du monde (seulement 21 km²).",
+                        "Indice 2 : Situé dans l'Océan Pacifique (Micronésie), sa monnaie est le Dollar Australien.",
+                        "Indice 3 : Ce pays n'a aucune capitale officielle légale désignée.",
+                        "Indice 4 : Il fut autrefois le pays au PIB par habitant le plus élevé grâce aux mines de phosphate.",
+                        "Indice 5 : C'est une île corallienne isolée située juste au sud de la ligne de l'Équateur."
+                    ],
+                    en: [
+                        "Clue 1: It is the smallest independent island republic in the world (21 km²).",
+                        "Clue 2: Located in the Pacific Ocean (Micronesia), its currency is the Australian Dollar.",
+                        "Clue 3: This nation has no official designated capital city.",
+                        "Clue 4: Was once extremely wealthy due to extensive guano phosphate mining.",
+                        "Clue 5: An isolated raised coral atoll situated just south of the Equator."
+                    ]
+                },
+                fact: {
+                    fr: "Nauru est le seul pays souverain sans capitale officielle déclarée.",
+                    en: "Nauru is the only sovereign country without an official capital city."
+                }
+            },
+            {
+                id: "kyrgyzstan",
+                type: "country",
+                names: { fr: "Kirghizistan", en: "Kyrgyzstan" },
+                flag: "🇰🇬",
+                capital: "Bichkek",
+                pop: "6,6 millions",
+                coords: { lat: 41.2044, lng: 74.7661 },
+                radiusKm: 380, // Territorial radius threshold
+                clues: {
+                    fr: [
+                        "Indice 1 : Pays enclavé et extrêmement montagneux (plus de 80% du territoire couvert par les monts Tian Shan).",
+                        "Indice 2 : Situé en Asie Centrale, il est frontalier avec la Chine, le Kazakhstan et l'Ouzbékistan.",
+                        "Indice 3 : Son drapeau rouge arbore au centre un soleil jaune à 40 rayons représentant le symbole du toundouk de la tente nomade (yurte).",
+                        "Indice 4 : Sa capitale est Bichkek et le lac Issyk-Koul est le deuxième plus grand lac de montagne au monde.",
+                        "Indice 5 : Ancienne république soviétique d'Asie Centrale dont la culture nomade du cheval demeure très vivace."
+                    ],
+                    en: [
+                        "Clue 1: Landlocked and extremely mountainous nation (over 80% covered by Tian Shan range).",
+                        "Clue 2: Located in Central Asia, bordered by China, Kazakhstan, and Uzbekistan.",
+                        "Clue 3: Red flag featuring a 40-ray yellow sun surrounding a yurt tent tunduk symbol.",
+                        "Clue 4: Capital city is Bishkek, and home to Lake Issyk-Kul.",
+                        "Clue 5: Former Soviet Central Asian republic deeply rooted in nomadic horse culture."
+                    ]
+                },
+                fact: {
+                    fr: "Le lac Issyk-Koul au Kirghizistan ne gèle jamais malgré l'altitude extrême.",
+                    en: "Lake Issyk-Kul in Kyrgyzstan never freezes despite high altitude."
+                }
+            },
+            {
+                id: "longyearbyen",
+                type: "city",
+                names: { fr: "Longyearbyen (Svalbard)", en: "Longyearbyen (Svalbard)" },
+                flag: "🇸🇯",
+                capital: "Territoire Norvégien",
+                pop: "2 400",
+                coords: { lat: 78.2232, lng: 15.6267 },
+                radiusKm: 20,
+                clues: {
+                    fr: [
+                        "Indice 1 : C'est la ville de plus de 1 000 habitants la plus septentrionale de la planète Earth.",
+                        "Indice 2 : Située dans un archipel de l'Océan Arctique où les ours polaires sont plus nombreux que les humains.",
+                        "Indice 3 : Abrite la Réserve mondiale de semences pour préserver la biodiversité végétale de la planète.",
+                        "Indice 4 : Sous la souveraineté de la Norvège (archipel du Svalbard), la nuit polaire y dure près de 4 mois.",
+                        "Indice 5 : Ville minière polaire où il est légalement interdit de mourir ou d'être enterré en raison du permafrost."
+                    ],
+                    en: [
+                        "Clue 1: The northernmost settlement of over 1,000 residents on Earth.",
+                        "Clue 2: Situated in an Arctic archipelago where polar bears outnumber humans.",
+                        "Clue 3: Houses the Svalbard Global Seed Vault underground in the permafrost.",
+                        "Clue 4: Under Norwegian sovereignty, experiencing 4 months of continuous polar night.",
+                        "Clue 5: Arctic mining town where dying is prohibited due to frozen ground permafrost."
+                    ]
+                },
+                fact: {
+                    fr: "À Longyearbyen, le sol est si gelé que les corps enterrés ne se décomposent pas.",
+                    en: "In Longyearbyen, permafrost prevents bodies from decomposing."
+                }
+            },
+            {
+                id: "bhutan",
+                type: "country",
+                names: { fr: "Bhoutan", en: "Bhutan" },
+                flag: "🇧🇹",
+                capital: "Thimphou",
+                pop: "780 000",
+                coords: { lat: 27.5142, lng: 90.4336 },
+                radiusKm: 180,
+                clues: {
+                    fr: [
+                        "Indice 1 : Royaume bouddhiste de l'Himalaya mesurant son développement par le Bonheur National Brut.",
+                        "Indice 2 : Frontalier uniquement avec l'Inde et la Chine (Tibet).",
+                        "Indice 3 : Son drapeau est divisé en jaune et orange avec un dragon blanc (Druk) au centre.",
+                        "Indice 4 : Sa capitale Thimphou est l'une des seules capitales au monde sans aucun feu de circulation.",
+                        "Indice 5 : Célèbre pour le monastère perché de Paro Taktsang (la Tanière du Tigre)."
+                    ],
+                    en: [
+                        "Clue 1: Himalayan Buddhist kingdom measuring development via Gross National Happiness.",
+                        "Clue 2: Landlocked strictly between India and China (Tibet).",
+                        "Clue 3: Flag features a white dragon (Druk) over yellow and orange background.",
+                        "Clue 4: Its capital Thimphu is one of the only capitals without traffic lights.",
+                        "Clue 5: Famous for the cliffside Paro Taktsang (Tiger's Nest) monastery."
+                    ]
+                },
+                fact: {
+                    fr: "Le Bhoutan est le seul pays au monde à présenter un bilan carbone négatif.",
+                    en: "Bhutan is the world's only carbon-negative country."
+                }
+            },
+            {
+                id: "suriname",
+                type: "country",
+                names: { fr: "Suriname", en: "Suriname" },
+                flag: "🇸🇷",
+                capital: "Paramaribo",
+                pop: "600 000",
+                coords: { lat: 3.9193, lng: -56.0278 },
+                radiusKm: 310,
+                clues: {
+                    fr: [
+                        "Indice 1 : Plus petit état indépendant d'Amérique du Sud, couvert à 93% par la forêt amazonienne.",
+                        "Indice 2 : Seul pays des Amériques où le néerlandais est la langue officielle.",
+                        "Indice 3 : Bordé par l'Océan Atlantique au nord, la Guyane française à l'est, et le Brésil au sud.",
+                        "Indice 4 : Sa capitale Paramaribo possède une architecture coloniale en bois inscrite à l'UNESCO.",
+                        "Indice 5 : Ancien territoire connu sous le nom de Guyane néerlandaise."
+                    ],
+                    en: [
+                        "Clue 1: Smallest independent nation in South America, 93% covered by rainforest.",
+                        "Clue 2: The only sovereign nation in the Americas where Dutch is official.",
+                        "Clue 3: Bordered by Atlantic Ocean north, French Guiana east, and Brazil south.",
+                        "Clue 4: Capital Paramaribo is known for historic wooden Dutch colonial buildings.",
+                        "Clue 5: Formerly known as Dutch Guiana before independence in 1975."
+                    ]
+                },
+                fact: {
+                    fr: "Le Suriname abrite la plus grande proportion de forêt tropicale préservée au monde.",
+                    en: "Suriname boasts the highest proportion of preserved rainforest globally."
+                }
+            },
+            {
+                id: "tokyo",
+                type: "city",
+                names: { fr: "Tokyo", en: "Tokyo" },
+                flag: "🇯🇵",
+                capital: "Japon",
+                pop: "37,4 millions",
+                coords: { lat: 35.6762, lng: 139.6503 },
+                radiusKm: 35,
+                clues: {
+                    fr: [
+                        "Indice 1 : Aire urbaine la plus peuplée de la planète.",
+                        "Indice 2 : Mégalopole asiatique dominée au loin par la silhouette du Mont Fuji.",
+                        "Indice 3 : Abrite le carrefour piéton de Shibuya et le quartier néon d'Akihabara.",
+                        "Indice 4 : Capitale du Japon reconstruite après le séisme de Kanto et la Seconde Guerre mondiale.",
+                        "Indice 5 : Cité nippone accueillant le Palais Impérial et la tour Tokyo Skytree."
+                    ],
+                    en: [
+                        "Clue 1: The most populous metropolitan area on Earth.",
+                        "Clue 2: Asian megalopolis with Mount Fuji visible on clear days.",
+                        "Clue 3: Famous for Shibuya Scramble crossing and Akihabara electronics district.",
+                        "Clue 4: Capital of Japan rebuilt after earthquakes and wars into a futuristic hub.",
+                        "Clue 5: Japanese megacity housing the Imperial Palace and Tokyo Skytree."
+                    ]
+                },
+                fact: {
+                    fr: "Tokyo était autrefois un simple village de pêcheurs appelé Edo.",
+                    en: "Tokyo was originally a small fishing village named Edo."
+                }
+            },
+            {
+                id: "morocco",
+                type: "country",
+                names: { fr: "Maroc", en: "Morocco" },
+                flag: "🇲🇦",
+                capital: "Rabat",
+                pop: "37 millions",
+                coords: { lat: 31.7917, lng: -7.0926 },
+                radiusKm: 480,
+                clues: {
+                    fr: [
+                        "Indice 1 : Royaume nord-africain bordé par l'Atlantique et la Méditerranée.",
+                        "Indice 2 : Traversé par la chaîne de montagnes du Haut Atlas.",
+                        "Indice 3 : Célèbre pour ses villes impériales comme Marrakech, Fès et Meknès.",
+                        "Indice 4 : Séparé de l'Espagne par le détroit de Gibraltar (14 km).",
+                        "Indice 5 : Sa capitale politique est Rabat et sa plus grande ville est Casablanca."
+                    ],
+                    en: [
+                        "Clue 1: North African kingdom bordering both Atlantic Ocean and Mediterranean Sea.",
+                        "Clue 2: Crossed by the majestic High Atlas mountain range.",
+                        "Clue 3: Famous for imperial cities like Marrakech, Fez, and Meknes.",
+                        "Clue 4: Separated from Spain by just 14 km across the Strait of Gibraltar.",
+                        "Clue 5: Political capital is Rabat while Casablanca is the largest city."
+                    ]
+                },
+                fact: {
+                    fr: "L'Université Al Quaraouiyine à Fès est la plus ancienne université encore en activité au monde.",
+                    en: "University of Al Quaraouiyine in Fez is the oldest continually operating university."
+                }
+            }
+        ];
+
+        let currentLang = 'fr';
+        let dailyCountries = [];
+        let currentRoundIndex = 0;
+        let currentClueLevel = 1; // 1 to 5
+        let userGuessCoords = null; // {lat, lng}
+        let roundResults = []; // Stores completed rounds data
+        let totalDailyScore = 0;
+        let streak = 0;
+        let currentUser = null;
+
+        function checkUserAuth() {
+            const savedUser = localStorage.getItem('guess_world_user');
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+                applyUserAuthUI();
+                document.getElementById('login-overlay').classList.add('hidden');
+                initDailyChallenge();
+            } else {
+                document.getElementById('login-overlay').classList.remove('hidden');
+            }
+        }
+
+        function simulateGoogleLogin() {
+            // Simulated Google Auth Session
+            currentUser = {
+                name: "Alexandre G.",
+                email: "alexandre.explorer@gmail.com",
+                avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80"
+            };
+            localStorage.setItem('guess_world_user', JSON.stringify(currentUser));
+            applyUserAuthUI();
+            
+            document.getElementById('login-overlay').classList.add('animate-out', 'fade-out', 'zoom-out', 'duration-300');
+            setTimeout(() => {
+                document.getElementById('login-overlay').classList.add('hidden');
+                initDailyChallenge();
+            }, 300);
+        }
+
+        function applyUserAuthUI() {
+            if (currentUser) {
+                document.getElementById('user-profile-badge').classList.remove('hidden');
+                document.getElementById('user-avatar').src = currentUser.avatar;
+                document.getElementById('user-name').innerText = currentUser.name;
+            }
+        }
+
+        function createSeededRandom(seedStr) {
+            let h = 2166136261 >>> 0;
+            for (let i = 0; i < seedStr.length; i++) {
+                h = Math.imul(h ^ seedStr.charCodeAt(i), 16777619);
+            }
+            return function() {
+                h += 0x6D2B79F5;
+                let t = Math.imul(h ^ (h >>> 15), 1 | h);
+                t ^= t + Math.imul(t ^ (t >>> 7), 61 | t) ^ t;
+                return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+            };
+        }
+
+        function initDailyChallenge() {
+            const now = new Date();
+            const dateStr = now.toISOString().split('T')[0];
+            document.getElementById('daily-date').innerText = `CHALLENGE DU ${dateStr}`;
+
+            const rng = createSeededRandom(dateStr);
+            const pool = [...LOCATION_DATABASE];
+            dailyCountries = [];
+
+            for (let i = 0; i < 5; i++) {
+                if (pool.length === 0) break;
+                const idx = Math.floor(rng() * pool.length);
+                dailyCountries.push(pool.splice(idx, 1)[0]);
+            }
+
+            // Load saved state from LocalStorage
+            const savedState = localStorage.getItem(`guess_world_${dateStr}`);
+            if (savedState) {
+                const parsed = JSON.parse(savedState);
+                roundResults = parsed.roundResults || [];
+                currentRoundIndex = roundResults.length;
+                totalDailyScore = parsed.totalDailyScore || 0;
+                streak = parsed.streak || 0;
+            }
+
+            updateStreakDisplay();
+            updateStatsUI();
+
+            if (currentRoundIndex >= 5) {
+                renderEndGameGlobeRecap();
+                showSummaryModal();
+            } else {
+                setupRound(currentRoundIndex);
+            }
+        }
+
+        function setupRound(index) {
+            if (index >= dailyCountries.length) {
+                renderEndGameGlobeRecap();
+                showSummaryModal();
+                return;
+            }
+
+            const target = dailyCountries[index];
+            currentClueLevel = 1;
+            userGuessCoords = null;
+            clearGlobeMarkers();
+
+            // Badge type
+            const badge = document.getElementById('target-type-badge');
+            if (target.type === 'country') {
+                badge.innerText = currentLang === 'fr' ? '🌍 PAYS' : '🌍 COUNTRY';
+                badge.className = "px-2.5 py-1 rounded-full text-[11px] font-bold font-mono tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+            } else {
+                badge.innerText = currentLang === 'fr' ? '🏙️ VILLE' : '🏙️ CITY';
+                badge.className = "px-2.5 py-1 rounded-full text-[11px] font-bold font-mono tracking-wider bg-sky-500/20 text-sky-400 border border-sky-500/30";
+            }
+
+            document.getElementById('round-indicator').innerText = `MANCHE ${index + 1} / 5`;
+            updateCluesDisplay();
+
+            document.getElementById('guess-status').innerText = currentLang === 'fr' ? 
+                "📍 Touchez le globe pour placer votre marqueur" : "📍 Tap globe to place target pin";
+            
+            const confirmBtn = document.getElementById('confirm-guess-btn');
+            confirmBtn.disabled = true;
+        }
+
+        function updateCluesDisplay() {
+            const target = dailyCountries[currentRoundIndex];
+            const cluesList = target.clues[currentLang];
+            const container = document.getElementById('clues-container');
+            container.innerHTML = '';
+
+            for (let i = 0; i < currentClueLevel; i++) {
+                const div = document.createElement('div');
+                div.className = "p-2.5 rounded-2xl bg-slate-900/80 border border-slate-800 text-xs leading-relaxed text-slate-200 animate-in fade-in slide-in-from-top-1";
+                div.innerHTML = `<span class="text-amber-400 font-bold mr-1">#${i+1}</span> ${cluesList[i]}`;
+                container.appendChild(div);
+            }
+
+            const maxPts = 1000 - (currentClueLevel - 1) * 200;
+            document.getElementById('max-points-indicator').innerText = `${maxPts} PTS MAX`;
+            document.getElementById('clue-count-text').innerText = currentClueLevel;
+
+            const nextClueBtn = document.getElementById('next-clue-btn');
+            if (currentClueLevel < 5) {
+                nextClueBtn.classList.remove('hidden');
+                document.getElementById('next-clue-text').innerText = currentLang === 'fr' ?
+                    `Découvrir l'indice suivant (${currentClueLevel + 1}/5) [-200 pts]` :
+                    `Reveal next clue (${currentClueLevel + 1}/5) [-200 pts]`;
+            } else {
+                nextClueBtn.classList.add('hidden');
+            }
+        }
+
+        function revealNextClue() {
+            if (currentClueLevel < 5) {
+                currentClueLevel++;
+                updateCluesDisplay();
+            }
+        }
+
+        function calculateHaversine(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Earth radius in km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return Math.round(R * c);
+        }
+
+        function getCardinalDirection(lat1, lon1, lat2, lon2) {
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const y = Math.sin(dLon) * Math.cos(lat2 * Math.PI / 180);
+            const x = Math.cos(lat1 * Math.PI / 180) * Math.sin(lat2 * Math.PI / 180) -
+                      Math.sin(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.cos(dLon);
+            let brng = Math.atan2(y, x) * 180 / Math.PI;
+            brng = (brng + 360) % 360;
+
+            const dirsFR = ["Nord ⬆️", "Nord-Est ↗️", "Est ➡️", "Sud-Est ↘️", "Sud ⬇️", "Sud-Ouest ↙️", "Ouest ⬅️", "Nord-Ouest ↖️"];
+            const dirsEN = ["North ⬆️", "North-East ↗️", "East ➡️", "South-East ↘️", "South ⬇️", "South-West ↙️", "West ⬅️", "North-West ↖️"];
+            const idx = Math.round(brng / 45) % 8;
+            return currentLang === 'fr' ? dirsFR[idx] : dirsEN[idx];
+        }
+
+        function confirmGuess() {
+            if (!userGuessCoords) return;
+
+            const target = dailyCountries[currentRoundIndex];
+            const dist = calculateHaversine(userGuessCoords.lat, userGuessCoords.lng, target.coords.lat, target.coords.lng);
+            const dir = getCardinalDirection(userGuessCoords.lat, userGuessCoords.lng, target.coords.lat, target.coords.lng);
+
+            // Maximum points based on clue level used
+            const maxPts = 1000 - (currentClueLevel - 1) * 200;
+            let score = 0;
+            let isInsideCountry = false;
+
+            if (target.type === 'country') {
+                // RULE: If guess lands INSIDE country territory radius, award MAXIMUM score for clue level!
+                if (dist <= target.radiusKm) {
+                    isInsideCountry = true;
+                    score = maxPts;
+                } else {
+                    const extraDist = dist - target.radiusKm;
+                    score = Math.floor(maxPts * Math.exp(-extraDist / 1200));
+                }
+            } else {
+                // City target radius
+                if (dist <= 25) {
+                    isInsideCountry = true;
+                    score = maxPts;
+                } else {
+                    score = Math.floor(maxPts * Math.exp(-dist / 1200));
+                }
+            }
+
+            // Draw target pin and connecting arc curve
+            setTargetMarker(target.coords.lat, target.coords.lng);
+            drawArcBetweenPoints(userGuessCoords, target.coords);
+            focusGlobeOn(target.coords.lat, target.coords.lng);
+
+            // Record round
+            const roundData = {
+                target,
+                guessCoords: userGuessCoords,
+                distance: dist,
+                score,
+                isInsideCountry,
+                cluesUsed: currentClueLevel
+            };
+            roundResults.push(roundData);
+            totalDailyScore += score;
+
+            // Show Result Modal
+            document.getElementById('result-flag').innerText = target.flag;
+            document.getElementById('result-name').innerText = target.names[currentLang];
+            document.getElementById('result-type').innerText = target.type === 'country' ? 'PAYS CIBLE' : 'VILLE CIBLE';
+            document.getElementById('result-dist').innerText = `${dist.toLocaleString()} km`;
+            document.getElementById('result-dir').innerText = dir;
+            document.getElementById('result-score').innerText = `+${score} pts`;
+            document.getElementById('result-capital').innerText = target.capital;
+            document.getElementById('result-pop').innerText = target.pop;
+            document.getElementById('result-fact').innerText = `"${target.fact[currentLang]}"`;
+
+            const insideBadge = document.getElementById('result-inside-badge');
+            if (isInsideCountry) {
+                insideBadge.classList.remove('hidden');
+            } else {
+                insideBadge.classList.add('hidden');
+            }
+
+            openModal('result-modal');
+
+            // Save Progress
+            const now = new Date();
+            const dateStr = now.toISOString().split('T')[0];
+            if (roundResults.length === 5) {
+                streak++;
+            }
+            localStorage.setItem(`guess_world_${dateStr}`, JSON.stringify({
+                roundResults,
+                totalDailyScore,
+                streak
+            }));
+            updateStreakDisplay();
+        }
+
+        function nextRound() {
+            closeModal('result-modal');
+            currentRoundIndex++;
+            if (currentRoundIndex >= 5) {
+                renderEndGameGlobeRecap();
+                showSummaryModal();
+            } else {
+                setupRound(currentRoundIndex);
+            }
+        }
+
+        function showSummaryModal() {
+            document.getElementById('summary-total-score').innerText = `${totalDailyScore.toLocaleString()} / 5,000`;
+            const listContainer = document.getElementById('summary-rounds-list');
+            listContainer.innerHTML = '';
+
+            roundResults.forEach((res, i) => {
+                const div = document.createElement('div');
+                div.className = "flex items-center justify-between p-2.5 rounded-2xl bg-slate-900/80 border border-slate-800 text-xs font-mono";
+                div.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <span class="text-amber-400 font-bold">#${i+1}</span>
+                        <span>${res.target.flag}</span>
+                        <span class="font-bold text-white">${res.target.names[currentLang]}</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-amber-400 font-bold">${res.score} pts</span>
+                        <span class="text-[10px] text-slate-500 block">${res.distance} km</span>
+                    </div>
+                `;
+                listContainer.appendChild(div);
+            });
+
+            document.getElementById('game-hud').classList.add('hidden');
+            document.getElementById('recap-hud-bar').classList.remove('hidden');
+            openModal('summary-modal');
+        }
+
+        function viewFullRecapOnGlobe() {
+            closeModal('summary-modal');
+            controls.autoRotate = true;
+            controls.autoRotateSpeed = 0.5;
+        }
+
+        function renderEndGameGlobeRecap() {
+            clearGlobeMarkers();
+            drawWorldCountryBorders(); // Render detailed country borders overlay
+            
+            // Render ALL 5 guesses, targets, and connecting arcs simultaneously
+            roundResults.forEach((res, index) => {
+                const colorHex = res.score > 800 ? 0x22c55e : res.score > 400 ? 0xf59e0b : 0xef4444;
+
+                // Guess pin
+                setGuessMarker(res.guessCoords.lat, res.guessCoords.lng, colorHex, `#${index + 1}`);
+                // Target pin
+                setTargetMarker(res.target.coords.lat, res.target.coords.lng);
+                // Arc
+                drawArcBetweenPoints(res.guessCoords, res.target.coords, colorHex);
+            });
+        }
+
+        function copyShareResults() {
+            const now = new Date();
+            const dateStr = now.toISOString().split('T')[0];
+            let text = `🌍 GUESS THE WORLD (${dateStr})\n`;
+            roundResults.forEach((r, idx) => {
+                const emoji = r.score > 800 ? '🟩' : r.score > 400 ? '🟨' : '🟥';
+                text += `#${idx + 1} ${r.target.flag} ${emoji} ${r.score} pts (${r.distance} km)\n`;
+            });
+            text += `🏆 Score Total: ${totalDailyScore} / 5,000\n🔥 Streak: ${streak} jours\nhttps://guess-the-world.app`;
+
+            navigator.clipboard.writeText(text).then(() => {
+                document.getElementById('share-btn-text').innerText = "COPIÉ DANS LE PRESSE-PAPIERS !";
+                setTimeout(() => {
+                    document.getElementById('share-btn-text').innerText = "PARTAGER MON RÉSULTAT";
+                }, 2000);
+            });
+        }
+
+        // Modal Handlers
+        function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+        function toggleLanguage() {
+            currentLang = currentLang === 'fr' ? 'en' : 'fr';
+            document.getElementById('lang-flag').innerText = currentLang === 'fr' ? '🇫🇷' : '🇬🇧';
+            document.getElementById('lang-label').innerText = currentLang.toUpperCase();
+            if (currentRoundIndex < 5) setupRound(currentRoundIndex);
+        }
+
+        function updateStreakDisplay() {
+            document.getElementById('streak-count').innerText = streak;
+        }
+
+        function updateStatsUI() {
+            document.getElementById('stat-played').innerText = roundResults.length > 0 ? 1 : 0;
+            document.getElementById('stat-streak').innerText = `🔥 ${streak}`;
+            document.getElementById('stat-avg-score').innerText = totalDailyScore;
+            document.getElementById('stat-best-streak').innerText = streak;
+        }
+
+        let scene, camera, renderer, controls;
+        let globeMesh;
+        let recapMarkersGroup = new THREE.Group();
+        let bordersGroup = new THREE.Group();
+        let raycaster, mouse;
+        const GLOBE_RADIUS = 5;
+        let worldGeoData = null;
+
+        async function loadCountryBorders() {
+            try {
+                const res = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
+                worldGeoData = await res.json();
+            } catch (err) {
+                console.warn("Could not load country borders topology", err);
+            }
+        }
+
+        function drawWorldCountryBorders() {
+            while (bordersGroup.children.length > 0) {
+                bordersGroup.remove(bordersGroup.children[0]);
+            }
+            if (!worldGeoData) return;
+
+            // Draw full country boundary mesh line geometries
+            const mesh = topojson.mesh(worldGeoData, worldGeoData.objects.countries);
+            if (mesh && mesh.coordinates) {
+                const material = new THREE.LineBasicMaterial({
+                    color: 0x38bdf8,
+                    transparent: true,
+                    opacity: 0.55
+                });
+
+                mesh.coordinates.forEach(lineCoords => {
+                    const points = [];
+                    lineCoords.forEach(([lng, lat]) => {
+                        points.push(latLngToVector3(lat, lng, GLOBE_RADIUS, 0.018));
+                    });
+                    if (points.length > 1) {
+                        const geom = new THREE.BufferGeometry().setFromPoints(points);
+                        bordersGroup.add(new THREE.Line(geom, material));
+                    }
+                });
+            }
+        }
+
+        function init3DGlobe() {
+            const container = document.getElementById('globe-container');
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x05070e);
+            scene.add(recapMarkersGroup);
+            scene.add(bordersGroup);
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 0, 15);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.minDistance = 6.2;
+            controls.maxDistance = 25;
+            controls.autoRotate = true;
+            controls.autoRotateSpeed = 0.4;
+
+            // Lighting
+            const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambient);
+
+            const sun = new THREE.DirectionalLight(0xffffff, 1.2);
+            sun.position.set(12, 10, 10);
+            scene.add(sun);
+
+            // Clean Globe Texture
+            const geometry = new THREE.SphereGeometry(GLOBE_RADIUS, 128, 128);
+            const textureLoader = new THREE.TextureLoader();
+            const earthTexture = textureLoader.load('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg');
+
+            const globeMaterial = new THREE.MeshStandardMaterial({
+                map: earthTexture,
+                roughness: 0.7,
+                metalness: 0.1
+            });
+
+            globeMesh = new THREE.Mesh(geometry, globeMaterial);
+            scene.add(globeMesh);
+
+            // Atmosphere Glow
+            const atmosGeo = new THREE.SphereGeometry(GLOBE_RADIUS * 1.12, 64, 64);
+            const atmosMat = new THREE.ShaderMaterial({
+                vertexShader: `
+                    varying vec3 vNormal;
+                    void main() {
+                        vNormal = normalize(normalMatrix * normal);
+                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                    }
+                `,
+                fragmentShader: `
+                    varying vec3 vNormal;
+                    void main() {
+                        float intensity = pow(0.6 - dot(vNormal, vec3(0, 0, 1.0)), 2.0);
+                        gl_FragColor = vec4(0.2, 0.6, 1.0, 1.0) * intensity;
+                    }
+                `,
+                blending: THREE.AdditiveBlending,
+                side: THREE.BackSide,
+                transparent: true
+            });
+            scene.add(new THREE.Mesh(atmosGeo, atmosMat));
+
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            window.addEventListener('resize', onWindowResize);
+            window.addEventListener('pointerdown', onGlobePointerDown);
+
+            animate();
+        }
+
+        function latLngToVector3(lat, lng, radius, height = 0) {
+            const phi = (90 - lat) * (Math.PI / 180);
+            const theta = (lng + 180) * (Math.PI / 180);
+            const r = radius + height;
+            return new THREE.Vector3(
+                -(r * Math.sin(phi) * Math.cos(theta)),
+                r * Math.cos(phi),
+                r * Math.sin(phi) * Math.sin(theta)
+            );
+        }
+
+        function vector3ToLatLng(vec) {
+            const radius = vec.length();
+            const lat = 90 - (Math.acos(vec.y / radius) * 180 / Math.PI);
+            const lng = ((Math.atan2(vec.z, -vec.x) * 180 / Math.PI) - 180);
+            return { lat, lng };
+        }
+
+        let pointerDownPos = { x: 0, y: 0 };
+        function onGlobePointerDown(event) {
+            pointerDownPos = { x: event.clientX, y: event.clientY };
+            window.addEventListener('pointerup', onGlobePointerUp, { once: true });
+        }
+
+        function onGlobePointerUp(event) {
+            if (currentRoundIndex >= 5) return; // Game over recap mode
+
+            const distMoved = Math.hypot(event.clientX - pointerDownPos.x, event.clientY - pointerDownPos.y);
+            if (distMoved > 6) return;
+
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObject(globeMesh);
+
+            if (intersects.length > 0) {
+                const hitPoint = intersects[0].point;
+                userGuessCoords = vector3ToLatLng(hitPoint);
+                
+                // Clear active round single guess marker
+                clearGlobeMarkers();
+                setGuessMarker(userGuessCoords.lat, userGuessCoords.lng, 0x38bdf8);
+
+                document.getElementById('guess-status').innerText = currentLang === 'fr' ?
+                    `📍 Marqueur placé ! Cliquez sur Valider.` : `📍 Pin placed! Tap Confirm.`;
+                document.getElementById('confirm-guess-btn').disabled = false;
+            }
+        }
+
+        function setGuessMarker(lat, lng, colorHex = 0x38bdf8, labelText = "") {
+            const pos = latLngToVector3(lat, lng, GLOBE_RADIUS, 0.08);
+            const pinGroup = new THREE.Group();
+
+            const sphere = new THREE.Mesh(
+                new THREE.SphereGeometry(0.12, 16, 16),
+                new THREE.MeshBasicMaterial({ color: colorHex })
+            );
+            sphere.position.copy(pos);
+
+            const lineGeo = new THREE.BufferGeometry().setFromPoints([
+                latLngToVector3(lat, lng, GLOBE_RADIUS),
+                latLngToVector3(lat, lng, GLOBE_RADIUS, 0.28)
+            ]);
+            const line = new THREE.Line(lineGeo, new THREE.LineBasicMaterial({ color: colorHex }));
+
+            pinGroup.add(sphere);
+            pinGroup.add(line);
+            recapMarkersGroup.add(pinGroup);
+        }
+
+        function setTargetMarker(lat, lng) {
+            const pos = latLngToVector3(lat, lng, GLOBE_RADIUS, 0.08);
+            const pinGroup = new THREE.Group();
+
+            const sphere = new THREE.Mesh(
+                new THREE.SphereGeometry(0.12, 16, 16),
+                new THREE.MeshBasicMaterial({ color: 0x22c55e })
+            );
+            sphere.position.copy(pos);
+
+            const lineGeo = new THREE.BufferGeometry().setFromPoints([
+                latLngToVector3(lat, lng, GLOBE_RADIUS),
+                latLngToVector3(lat, lng, GLOBE_RADIUS, 0.3)
+            ]);
+            const line = new THREE.Line(lineGeo, new THREE.LineBasicMaterial({ color: 0x22c55e }));
+
+            pinGroup.add(sphere);
+            pinGroup.add(line);
+            recapMarkersGroup.add(pinGroup);
+        }
+
+        function drawArcBetweenPoints(c1, c2, colorHex = 0xf59e0b) {
+            const v1 = latLngToVector3(c1.lat, c1.lng, GLOBE_RADIUS, 0.05);
+            const v2 = latLngToVector3(c2.lat, c2.lng, GLOBE_RADIUS, 0.05);
+
+            const points = [];
+            const count = 40;
+            for (let i = 0; i <= count; i++) {
+                const t = i / count;
+                const vec = new THREE.Vector3().lerpVectors(v1, v2, t);
+                const altitude = Math.sin(t * Math.PI) * 0.8;
+                vec.normalize().multiplyScalar(GLOBE_RADIUS + 0.05 + altitude);
+                points.push(vec);
+            }
+
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            const material = new THREE.LineBasicMaterial({ color: colorHex, linewidth: 2 });
+            const arc = new THREE.Line(geometry, material);
+            recapMarkersGroup.add(arc);
+        }
+
+        function clearGlobeMarkers() {
+            while (recapMarkersGroup.children.length > 0) {
+                const obj = recapMarkersGroup.children[0];
+                recapMarkersGroup.remove(obj);
+            }
+        }
+
+        function focusGlobeOn(lat, lng) {
+            controls.autoRotate = false;
+            const targetPos = latLngToVector3(lat, lng, 12);
+            camera.position.copy(targetPos);
+            camera.lookAt(0, 0, 0);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        window.onload = () => {
+            init3DGlobe();
+            loadCountryBorders().then(() => {
+                drawWorldCountryBorders();
+            });
+            checkUserAuth();
+        };
+    </script>
+</body>
+</html>
