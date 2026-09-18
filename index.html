@@ -1,0 +1,1196 @@
+<!DOCTYPE html>
+<html lang="fr" class="dark h-full bg-[#05070e] text-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GUESS THE WORLD 🌍 - Daily Globe Game</title>
+
+    <!-- Fonts & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- 3D & Mapping Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+
+    <style>
+        .font-display { font-family: 'Space Grotesk', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        .glass-card {
+            background: rgba(13, 18, 30, 0.88);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+        .glass-btn {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .glass-btn:hover:not(:disabled) {
+            background: rgba(51, 65, 85, 0.9);
+            border-color: rgba(255, 255, 255, 0.35);
+            transform: translateY(-1px);
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+    </style>
+</head>
+<body class="h-full w-full bg-[#05070e] text-slate-100 relative overflow-hidden select-none">
+
+    <!-- 3D WebGL Globe Canvas Container -->
+    <div id="globe-container" class="absolute inset-0 z-0 cursor-grab active:cursor-grabbing"></div>
+
+    <!-- START & MANDATORY LOGIN SCREEN OVERLAY -->
+    <div id="login-overlay" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-xl">
+        <div class="glass-card rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-slate-700 text-center space-y-6 animate-in fade-in zoom-in duration-300">
+            <div class="space-y-2">
+                <div class="w-16 h-16 rounded-3xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-400 text-3xl mx-auto shadow-lg shadow-emerald-500/10">
+                    🌍
+                </div>
+                <h1 class="text-2xl sm:text-3xl font-bold font-display tracking-tight text-white">GUESS THE WORLD</h1>
+                <p id="login-subtitle" class="text-xs text-slate-400 font-mono">5 LIEUX. 1 GLOBE. CHAQUE JOUR.</p>
+            </div>
+
+            <div class="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 text-left space-y-2.5 text-xs text-slate-300">
+                <div class="flex items-center gap-2 text-emerald-400 font-semibold font-mono">
+                    <i class="fa-solid fa-circle-check"></i>
+                    <span id="login-feat-1">Challenge quotidien unique pour tous</span>
+                </div>
+                <div class="flex items-center gap-2 text-amber-400 font-semibold font-mono">
+                    <i class="fa-solid fa-fire"></i>
+                    <span id="login-feat-2">Sauvegarde de votre Streak & Statistiques</span>
+                </div>
+                <div class="flex items-center gap-2 text-sky-400 font-semibold font-mono">
+                    <i class="fa-solid fa-globe"></i>
+                    <span id="login-feat-3">Globe 3D interactif et indices progressifs</span>
+                </div>
+            </div>
+
+            <!-- START BUTTON -->
+            <div class="space-y-3 pt-2">
+                <button onclick="startGame()" class="w-full py-3.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold font-display rounded-2xl text-sm sm:text-base transition shadow-xl shadow-emerald-500/20 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-play"></i>
+                    <span id="start-btn-text">COMMENCER</span>
+                </button>
+                <p id="login-disclaimer" class="text-[10px] text-slate-500 font-mono">Prêt à tester vos connaissances géographiques ?</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- HEADER / NAVBAR -->
+    <header class="absolute top-0 left-0 right-0 z-20 p-3 sm:p-4 flex items-center justify-between pointer-events-none">
+        <!-- Logo & Title -->
+        <div class="glass-card rounded-2xl px-3.5 py-2 flex items-center gap-2.5 pointer-events-auto shadow-2xl">
+            <div class="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-400 text-lg">
+                🌍
+            </div>
+            <div>
+                <h1 class="text-xs sm:text-sm font-bold font-display tracking-wide text-white">GUESS THE WORLD</h1>
+                <p id="daily-date" class="text-[10px] text-slate-400 font-mono">CHALLENGE DU JOUR</p>
+            </div>
+        </div>
+
+        <!-- Top Right Controls (User Profile, Streak, Lang, Stats, Help) -->
+        <div class="flex items-center gap-2 pointer-events-auto">
+            <!-- User Profile Avatar -->
+            <div id="user-profile-badge" class="hidden glass-card rounded-2xl px-2.5 py-1.5 flex items-center gap-2 border-slate-700">
+                <img id="user-avatar" src="" alt="Avatar" class="w-6 h-6 rounded-full border border-emerald-400">
+                <span id="user-name" class="text-xs font-semibold text-slate-200 hidden sm:inline">Joueur</span>
+            </div>
+
+            <!-- Streak Counter -->
+            <div class="glass-card rounded-2xl px-3 py-1.5 flex items-center gap-1.5 font-mono text-xs text-amber-400 border-amber-500/30">
+                <i class="fa-solid fa-fire text-amber-500 animate-pulse"></i>
+                <span id="streak-count" class="font-bold">0</span>
+            </div>
+
+            <!-- Language Switcher -->
+            <button onclick="toggleLanguage()" class="glass-btn px-2.5 py-1.5 rounded-2xl text-xs font-semibold text-slate-200 flex items-center gap-1">
+                <span id="lang-flag">🇫🇷</span>
+                <span id="lang-label" class="uppercase text-[11px]">FR</span>
+            </button>
+
+            <!-- Stats Modal Toggle -->
+            <button onclick="openModal('stats-modal')" class="glass-btn w-9 h-9 rounded-2xl flex items-center justify-center text-slate-200">
+                <i class="fa-solid fa-chart-simple text-xs"></i>
+            </button>
+
+            <!-- Help / How to play -->
+            <button onclick="openModal('help-modal')" class="glass-btn w-9 h-9 rounded-2xl flex items-center justify-center text-slate-200">
+                <i class="fa-solid fa-circle-question text-xs"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN GAME HUD PANEL (LEFT SIDE / TOP MOBILE) -->
+    <main id="game-hud" class="absolute top-16 left-3 right-3 sm:right-auto sm:left-4 sm:top-20 z-20 sm:max-w-md w-full pointer-events-auto transition-all">
+        <div class="glass-card rounded-3xl p-4 sm:p-5 shadow-2xl border border-slate-700/80 space-y-3">
+            
+            <!-- Round Bar Header -->
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div class="flex items-center gap-2">
+                    <span id="target-type-badge" class="px-2.5 py-1 rounded-full text-[11px] font-bold font-mono tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                        🌍 PAYS
+                    </span>
+                    <span id="round-indicator" class="text-xs font-mono text-slate-400">MANCHE 1 / 5</span>
+                </div>
+                <div class="text-right">
+                    <span class="text-[10px] text-slate-400 block font-mono">POTENTIEL MAX</span>
+                    <span id="max-points-indicator" class="text-xs font-bold font-mono text-amber-400">1000 PTS</span>
+                </div>
+            </div>
+
+            <!-- Clues Card Display -->
+            <div class="space-y-2">
+                <div class="flex items-center justify-between text-xs text-slate-400 font-mono">
+                    <span>INDICES RÉVÉLÉS (<span id="clue-count-text">1</span>/5)</span>
+                    <span class="text-[10px] text-slate-500">Plaquez votre guess sur le globe</span>
+                </div>
+                <div id="clues-container" class="space-y-2 max-h-48 sm:max-h-60 overflow-y-auto pr-1">
+                    <!-- Clues populated dynamically -->
+                </div>
+            </div>
+
+            <!-- Reveal Next Clue Action Button -->
+            <button id="next-clue-btn" onclick="revealNextClue()" class="w-full py-2 bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold transition border border-slate-700 flex items-center justify-center gap-2">
+                <i class="fa-solid fa-lightbulb text-amber-400"></i>
+                <span id="next-clue-text">Découvrir l'indice suivant (2/5) [-200 pts]</span>
+            </button>
+
+            <!-- Guess Confirmation Controls -->
+            <div class="pt-2 space-y-2">
+                <div id="guess-status" class="text-center text-xs font-mono text-slate-400 py-1 bg-slate-900/60 rounded-xl border border-slate-800">
+                    📍 Touchez le globe pour placer votre marqueur
+                </div>
+                
+                <button id="confirm-guess-btn" disabled onclick="confirmGuess()" class="w-full py-3 bg-emerald-600 disabled:bg-slate-800 text-white disabled:text-slate-500 font-bold font-display rounded-2xl text-sm transition shadow-lg disabled:shadow-none flex items-center justify-center gap-2 border border-emerald-400/30 disabled:border-slate-700">
+                    <i class="fa-solid fa-location-dot"></i>
+                    <span id="confirm-btn-text">CONFIRMER MON GUESS</span>
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- FLOATING RECAP CONTROLS BAR (Shown after game completion) -->
+    <div id="recap-hud-bar" class="hidden absolute bottom-6 left-1/2 -translate-x-1/2 z-30 pointer-events-auto">
+        <div class="glass-card rounded-full px-5 py-2.5 flex items-center gap-3 shadow-2xl border border-slate-700">
+            <span class="text-xs font-mono font-bold text-amber-400 flex items-center gap-1.5">
+                <i class="fa-solid fa-layer-group"></i> RÉCAP DES 5 PINGS
+            </span>
+            <button onclick="openModal('summary-modal')" class="px-3 py-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-full text-xs font-bold font-display transition">
+                VOIR LE SCORE
+            </button>
+        </div>
+    </div>
+
+    <!-- ROUND RESULT OVERLAY MODAL -->
+    <div id="result-modal" class="hidden fixed inset-0 z-40 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+        <div class="glass-card rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-700 space-y-4 animate-in fade-in zoom-in duration-200">
+            <div class="text-center space-y-1">
+                <span id="result-flag" class="text-5xl block">🇳🇴</span>
+                <h2 id="result-name" class="text-2xl font-bold font-display text-white">Norvège</h2>
+                <p id="result-type" class="text-xs font-mono text-emerald-400 uppercase">PAYS CIBLE</p>
+            </div>
+
+            <!-- Inside Country Banner (When player landed inside territory) -->
+            <div id="result-inside-badge" class="hidden p-2 bg-emerald-500/20 border border-emerald-400/40 rounded-2xl text-center text-xs font-mono font-bold text-emerald-400">
+                🎉 PING DANS LE PAYS ! SCORE MAXIMUM OBTENU !
+            </div>
+
+            <!-- Result Metrics -->
+            <div class="grid grid-cols-3 gap-2 bg-slate-900/80 p-3 rounded-2xl border border-slate-800 text-center font-mono">
+                <div>
+                    <span class="text-[10px] text-slate-400 block">DISTANCE</span>
+                    <span id="result-dist" class="text-sm font-bold text-white">846 km</span>
+                </div>
+                <div>
+                    <span class="text-[10px] text-slate-400 block">DIRECTION</span>
+                    <span id="result-dir" class="text-sm font-bold text-slate-200">↗ Nord-Est</span>
+                </div>
+                <div>
+                    <span class="text-[10px] text-slate-400 block">SCORE</span>
+                    <span id="result-score" class="text-sm font-bold text-amber-400">+812 pts</span>
+                </div>
+            </div>
+
+            <!-- Real Info & Fun Fact -->
+            <div class="bg-slate-900/60 p-3.5 rounded-2xl border border-slate-800 text-xs space-y-2">
+                <div class="flex justify-between text-slate-300">
+                    <span class="text-slate-400">Capitale / Siège:</span>
+                    <span id="result-capital" class="font-medium text-white">Oslo</span>
+                </div>
+                <div class="flex justify-between text-slate-300">
+                    <span class="text-slate-400">Population:</span>
+                    <span id="result-pop" class="font-medium text-white">5,4 millions</span>
+                </div>
+                <hr class="border-slate-800">
+                <p id="result-fact" class="text-slate-300 text-[11px] leading-relaxed italic">
+                    "La Norvège possède le plus long tunnel routier du monde."
+                </p>
+            </div>
+
+            <button onclick="nextRound()" class="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold font-display rounded-2xl text-sm transition shadow-lg shadow-emerald-500/20">
+                <span id="next-round-btn-text">MANCHE SUIVANTE</span> <i class="fa-solid fa-arrow-right ml-1"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- FINAL DAILY SUMMARY MODAL -->
+    <div id="summary-modal" class="hidden fixed inset-0 z-40 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md">
+        <div class="glass-card rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-700 space-y-4">
+            <div class="text-center space-y-1">
+                <div class="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-400/40 text-amber-400 flex items-center justify-center text-2xl mx-auto mb-2">
+                    🏆
+                </div>
+                <h2 class="text-xl font-bold font-display text-white">RÉSULTAT DU JOUR</h2>
+                <p id="summary-date" class="text-xs font-mono text-slate-400">Challenge du 18 Septembre 2026</p>
+            </div>
+
+            <!-- Big Score Header -->
+            <div class="text-center py-3 bg-slate-900/80 rounded-2xl border border-slate-800 font-mono">
+                <span class="text-[10px] text-slate-400 block">SCORE TOTAL</span>
+                <span id="summary-total-score" class="text-3xl font-bold font-display text-amber-400">4,287 / 5,000</span>
+            </div>
+
+            <!-- Round Breakdown List -->
+            <div id="summary-rounds-list" class="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                <!-- Dynamically filled -->
+            </div>
+
+            <!-- Action buttons -->
+            <div class="space-y-2 pt-2">
+                <button onclick="copyShareResults()" class="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold font-display rounded-2xl text-sm transition shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-share-nodes"></i>
+                    <span id="share-btn-text">PARTAGER MON RÉSULTAT</span>
+                </button>
+                <button onclick="viewFullRecapOnGlobe()" class="w-full py-2.5 glass-btn text-slate-300 font-semibold rounded-2xl text-xs transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-globe text-amber-400"></i>
+                    <span id="view-recap-btn-text">VOIR LE RÉCAP DES 5 PINGS SUR LE GLOBE</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- STATS MODAL -->
+    <div id="stats-modal" class="hidden fixed inset-0 z-40 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+        <div class="glass-card rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-700 space-y-4">
+            <div class="flex justify-between items-center">
+                <h2 class="text-lg font-bold font-display text-white">MES STATISTIQUES</h2>
+                <button onclick="closeModal('stats-modal')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 font-mono">
+                <div class="bg-slate-900/80 p-3 rounded-2xl border border-slate-800 text-center">
+                    <span class="text-xl font-bold text-white block" id="stat-played">0</span>
+                    <span class="text-[10px] text-slate-400">PARTIES JOUÉES</span>
+                </div>
+                <div class="bg-slate-900/80 p-3 rounded-2xl border border-slate-800 text-center">
+                    <span class="text-xl font-bold text-amber-400 block" id="stat-streak">🔥 0</span>
+                    <span class="text-[10px] text-slate-400">SÉRIE ACTUELLE</span>
+                </div>
+                <div class="bg-slate-900/80 p-3 rounded-2xl border border-slate-800 text-center">
+                    <span class="text-xl font-bold text-emerald-400 block" id="stat-avg-score">0</span>
+                    <span class="text-[10px] text-slate-400">SCORE MOYEN</span>
+                </div>
+                <div class="bg-slate-900/80 p-3 rounded-2xl border border-slate-800 text-center">
+                    <span class="text-xl font-bold text-accent block" id="stat-best-streak">0</span>
+                    <span class="text-[10px] text-slate-400">MEILLEUR STREAK</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- HELP / HOW TO PLAY MODAL -->
+    <div id="help-modal" class="hidden fixed inset-0 z-40 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+        <div class="glass-card rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-700 space-y-4 text-xs leading-relaxed">
+            <div class="flex justify-between items-center">
+                <h2 class="text-lg font-bold font-display text-white">COMMENT JOUER ?</h2>
+                <button onclick="closeModal('help-modal')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="space-y-3 text-slate-300">
+                <div class="flex gap-3 items-start">
+                    <div class="w-6 h-6 rounded-lg bg-emerald-500/20 text-emerald-400 font-bold flex items-center justify-center shrink-0">1</div>
+                    <p><strong class="text-white">Challenge Quotidien :</strong> 5 lieux mystères à deviner chaque jour sur le globe 3D.</p>
+                </div>
+                <div class="flex gap-3 items-start">
+                    <div class="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-400 font-bold flex items-center justify-center shrink-0">2</div>
+                    <p><strong class="text-white">Règle des Pays :</strong> Pour un pays, si votre ping tombe <span class="text-emerald-400 font-semibold">à l'intérieur de ses frontières</span>, vous obtenez 100% des points max selon l'indice !</p>
+                </div>
+                <div class="flex gap-3 items-start">
+                    <div class="w-6 h-6 rounded-lg bg-accent/20 text-accent font-bold flex items-center justify-center shrink-0">3</div>
+                    <p><strong class="text-white">Récap des 5 pings :</strong> À la fin des 5 manches, visualisez l'ensemble de vos positions et distances directement sur le globe 3D.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Rich locations database (Countries & Cities) with territory radiuses for inside-country checks
+        const LOCATION_DATABASE = [
+            {
+                id: "nauru",
+                type: "country",
+                names: { fr: "Nauru", en: "Nauru" },
+                flag: "🇳🇷",
+                capital: "Yaren (de facto)",
+                pop: "10 800",
+                coords: { lat: -0.5228, lng: 166.9315 },
+                radiusKm: 25, // Territorial radius threshold
+                clues: {
+                    fr: [
+                        "Indice 1 : C'est le plus petit état insulaire indépendant du monde (seulement 21 km²).",
+                        "Indice 2 : Situé dans l'Océan Pacifique (Micronésie), sa monnaie est le Dollar Australien.",
+                        "Indice 3 : Ce pays n'a aucune capitale officielle légale désignée.",
+                        "Indice 4 : Il fut autrefois le pays au PIB par habitant le plus élevé grâce aux mines de phosphate.",
+                        "Indice 5 : C'est une île corallienne isolée située juste au sud de la ligne de l'Équateur."
+                    ],
+                    en: [
+                        "Clue 1: It is the smallest independent island republic in the world (21 km²).",
+                        "Clue 2: Located in the Pacific Ocean (Micronesia), its currency is the Australian Dollar.",
+                        "Clue 3: This nation has no official designated capital city.",
+                        "Clue 4: Was once extremely wealthy due to extensive guano phosphate mining.",
+                        "Clue 5: An isolated raised coral atoll situated just south of the Equator."
+                    ]
+                },
+                fact: {
+                    fr: "Nauru est le seul pays souverain sans capitale officielle déclarée.",
+                    en: "Nauru is the only sovereign country without an official capital city."
+                }
+            },
+            {
+                id: "kyrgyzstan",
+                type: "country",
+                names: { fr: "Kirghizistan", en: "Kyrgyzstan" },
+                flag: "🇰🇬",
+                capital: "Bichkek",
+                pop: "6,6 millions",
+                coords: { lat: 41.2044, lng: 74.7661 },
+                radiusKm: 380, // Territorial radius threshold
+                clues: {
+                    fr: [
+                        "Indice 1 : Pays enclavé et extrêmement montagneux (plus de 80% du territoire couvert par les monts Tian Shan).",
+                        "Indice 2 : Situé en Asie Centrale, il est frontalier avec la Chine, le Kazakhstan et l'Ouzbékistan.",
+                        "Indice 3 : Son drapeau rouge arbore au centre un soleil jaune à 40 rayons représentant le symbole du toundouk de la tente nomade (yurte).",
+                        "Indice 4 : Sa capitale est Bichkek et le lac Issyk-Koul est le deuxième plus grand lac de montagne au monde.",
+                        "Indice 5 : Ancienne république soviétique d'Asie Centrale dont la culture nomade du cheval demeure très vivace."
+                    ],
+                    en: [
+                        "Clue 1: Landlocked and extremely mountainous nation (over 80% covered by Tian Shan range).",
+                        "Clue 2: Located in Central Asia, bordered by China, Kazakhstan, and Uzbekistan.",
+                        "Clue 3: Red flag featuring a 40-ray yellow sun surrounding a yurt tent tunduk symbol.",
+                        "Clue 4: Capital city is Bishkek, and home to Lake Issyk-Kul.",
+                        "Clue 5: Former Soviet Central Asian republic deeply rooted in nomadic horse culture."
+                    ]
+                },
+                fact: {
+                    fr: "Le lac Issyk-Koul au Kirghizistan ne gèle jamais malgré l'altitude extrême.",
+                    en: "Lake Issyk-Kul in Kyrgyzstan never freezes despite high altitude."
+                }
+            },
+            {
+                id: "longyearbyen",
+                type: "city",
+                names: { fr: "Longyearbyen (Svalbard)", en: "Longyearbyen (Svalbard)" },
+                flag: "🇸🇯",
+                capital: "Territoire Norvégien",
+                pop: "2 400",
+                coords: { lat: 78.2232, lng: 15.6267 },
+                radiusKm: 20,
+                clues: {
+                    fr: [
+                        "Indice 1 : C'est la ville de plus de 1 000 habitants la plus septentrionale de la planète Earth.",
+                        "Indice 2 : Située dans un archipel de l'Océan Arctique où les ours polaires sont plus nombreux que les humains.",
+                        "Indice 3 : Abrite la Réserve mondiale de semences pour préserver la biodiversité végétale de la planète.",
+                        "Indice 4 : Sous la souveraineté de la Norvège (archipel du Svalbard), la nuit polaire y dure près de 4 mois.",
+                        "Indice 5 : Cette ville est située en Norvège."
+                    ],
+                    en: [
+                        "Clue 1: The northernmost settlement of over 1,000 residents on Earth.",
+                        "Clue 2: Situated in an Arctic archipelago where polar bears outnumber humans.",
+                        "Clue 3: Houses the Svalbard Global Seed Vault underground in the permafrost.",
+                        "Clue 4: Under Norwegian sovereignty, experiencing 4 months of continuous polar night.",
+                        "Clue 5: This town is located in Norway."
+                    ]
+                },
+                fact: {
+                    fr: "À Longyearbyen, le sol est si gelé que les corps enterrés ne se décomposent pas.",
+                    en: "In Longyearbyen, permafrost prevents bodies from decomposing."
+                }
+            },
+            {
+                id: "bhutan",
+                type: "country",
+                names: { fr: "Bhoutan", en: "Bhutan" },
+                flag: "🇧🇹",
+                capital: "Thimphou",
+                pop: "780 000",
+                coords: { lat: 27.5142, lng: 90.4336 },
+                radiusKm: 180,
+                clues: {
+                    fr: [
+                        "Indice 1 : Royaume bouddhiste de l'Himalaya mesurant son développement par le Bonheur National Brut.",
+                        "Indice 2 : Frontalier uniquement avec l'Inde et la Chine (Tibet).",
+                        "Indice 3 : Son drapeau est divisé en jaune et orange avec un dragon blanc (Druk) au centre.",
+                        "Indice 4 : Sa capitale Thimphou est l'une des seules capitales au monde sans aucun feu de circulation.",
+                        "Indice 5 : Célèbre pour le monastère perché de Paro Taktsang (la Tanière du Tigre)."
+                    ],
+                    en: [
+                        "Clue 1: Himalayan Buddhist kingdom measuring development via Gross National Happiness.",
+                        "Clue 2: Landlocked strictly between India and China (Tibet).",
+                        "Clue 3: Flag features a white dragon (Druk) over yellow and orange background.",
+                        "Clue 4: Its capital Thimphu is one of the only capitals without traffic lights.",
+                        "Clue 5: Famous for the cliffside Paro Taktsang (Tiger's Nest) monastery."
+                    ]
+                },
+                fact: {
+                    fr: "Le Bhoutan est le seul pays au monde à présenter un bilan carbone négatif.",
+                    en: "Bhutan is the world's only carbon-negative country."
+                }
+            },
+            {
+                id: "suriname",
+                type: "country",
+                names: { fr: "Suriname", en: "Suriname" },
+                flag: "🇸🇷",
+                capital: "Paramaribo",
+                pop: "600 000",
+                coords: { lat: 3.9193, lng: -56.0278 },
+                radiusKm: 310,
+                clues: {
+                    fr: [
+                        "Indice 1 : Plus petit état indépendant d'Amérique du Sud, couvert à 93% par la forêt amazonienne.",
+                        "Indice 2 : Seul pays des Amériques où le néerlandais est la langue officielle.",
+                        "Indice 3 : Bordé par l'Océan Atlantique au nord, la Guyane française à l'est, et le Brésil au sud.",
+                        "Indice 4 : Sa capitale Paramaribo possède une architecture coloniale en bois inscrite à l'UNESCO.",
+                        "Indice 5 : Ancien territoire connu sous le nom de Guyane néerlandaise."
+                    ],
+                    en: [
+                        "Clue 1: Smallest independent nation in South America, 93% covered by rainforest.",
+                        "Clue 2: The only sovereign nation in the Americas where Dutch is official.",
+                        "Clue 3: Bordered by Atlantic Ocean north, French Guiana east, and Brazil south.",
+                        "Clue 4: Capital Paramaribo is known for historic wooden Dutch colonial buildings.",
+                        "Clue 5: Formerly known as Dutch Guiana before independence in 1975."
+                    ]
+                },
+                fact: {
+                    fr: "Le Suriname abrite la plus grande proportion de forêt tropicale préservée au monde.",
+                    en: "Suriname boasts the highest proportion of preserved rainforest globally."
+                }
+            },
+            {
+                id: "tokyo",
+                type: "city",
+                names: { fr: "Tokyo", en: "Tokyo" },
+                flag: "🇯🇵",
+                capital: "Japon",
+                pop: "37,4 millions",
+                coords: { lat: 35.689, lng: 139.6917 },
+                radiusKm: 35,
+                clues: {
+                    fr: [
+                        "Indice 1 : Aire urbaine la plus peuplée de la planète.",
+                        "Indice 2 : Mégalopole asiatique dominée au loin par la silhouette du Mont Fuji.",
+                        "Indice 3 : Abrite le carrefour piéton de Shibuya et le quartier néon d'Akihabara.",
+                        "Indice 4 : Capitale du Japon reconstruite après le séisme de Kanto et la Seconde Guerre mondiale.",
+                        "Indice 5 : Cette ville est située au Japon."
+                    ],
+                    en: [
+                        "Clue 1: The most populous metropolitan area on Earth.",
+                        "Clue 2: Asian megalopolis with Mount Fuji visible on clear days.",
+                        "Clue 3: Famous for Shibuya Scramble crossing and Akihabara electronics district.",
+                        "Clue 4: Capital of Japan rebuilt after earthquakes and wars into a futuristic hub.",
+                        "Clue 5: This city is located in Japan."
+                    ]
+                },
+                fact: {
+                    fr: "Tokyo était autrefois un simple village de pêcheurs appelé Edo.",
+                    en: "Tokyo was originally a small fishing village named Edo."
+                }
+            },
+            {
+                id: "morocco",
+                type: "country",
+                names: { fr: "Maroc", en: "Morocco" },
+                flag: "🇲🇦",
+                capital: "Rabat",
+                pop: "37 millions",
+                coords: { lat: 31.7917, lng: -7.0926 },
+                radiusKm: 480,
+                clues: {
+                    fr: [
+                        "Indice 1 : Royaume nord-africain bordé par l'Atlantique et la Méditerranée.",
+                        "Indice 2 : Traversé par la chaîne de montagnes du Haut Atlas.",
+                        "Indice 3 : Célèbre pour ses villes impériales comme Marrakech, Fès et Meknès.",
+                        "Indice 4 : Séparé de l'Espagne par le détroit de Gibraltar (14 km).",
+                        "Indice 5 : Sa capitale politique est Rabat et sa plus grande ville est Casablanca."
+                    ],
+                    en: [
+                        "Clue 1: North African kingdom bordering both Atlantic Ocean and Mediterranean Sea.",
+                        "Clue 2: Crossed by the majestic High Atlas mountain range.",
+                        "Clue 3: Famous for imperial cities like Marrakech, Fez, and Meknes.",
+                        "Clue 4: Separated from Spain by just 14 km across the Strait of Gibraltar.",
+                        "Clue 5: Political capital is Rabat while Casablanca is the largest city."
+                    ]
+                },
+                fact: {
+                    fr: "L'Université Al Quaraouiyine à Fès est la plus ancienne université encore en activité au monde.",
+                    en: "University of Al Quaraouiyine in Fez is the oldest continually operating university."
+                }
+            }
+        ];
+
+        let currentLang = 'fr';
+        let dailyCountries = [];
+        let currentRoundIndex = 0;
+        let currentClueLevel = 1; // 1 to 5
+        let userGuessCoords = null; // {lat, lng}
+        let roundResults = []; // Stores completed rounds data
+        let totalDailyScore = 0;
+        let streak = 0;
+        let currentUser = null;
+
+        function checkUserAuth() {
+            const savedUser = localStorage.getItem('guess_world_user');
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+            } else {
+                currentUser = {
+                    name: "Joueur",
+                    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80"
+                };
+                localStorage.setItem('guess_world_user', JSON.stringify(currentUser));
+            }
+            applyUserAuthUI();
+
+            const now = new Date();
+            const dateStr = now.toISOString().split('T')[0];
+            const savedState = localStorage.getItem(`guess_world_${dateStr}`);
+
+            if (savedState) {
+                document.getElementById('login-overlay').classList.add('hidden');
+                initDailyChallenge();
+            } else {
+                document.getElementById('login-overlay').classList.remove('hidden');
+            }
+        }
+
+        function startGame() {
+            document.getElementById('login-overlay').classList.add('animate-out', 'fade-out', 'zoom-out', 'duration-300');
+            setTimeout(() => {
+                document.getElementById('login-overlay').classList.add('hidden');
+                initDailyChallenge();
+            }, 300);
+        }
+
+        function applyUserAuthUI() {
+            if (currentUser) {
+                document.getElementById('user-profile-badge').classList.remove('hidden');
+                document.getElementById('user-avatar').src = currentUser.avatar;
+                document.getElementById('user-name').innerText = currentUser.name;
+            }
+        }
+
+        function createSeededRandom(seedStr) {
+            let h = 2166136261 >>> 0;
+            for (let i = 0; i < seedStr.length; i++) {
+                h = Math.imul(h ^ seedStr.charCodeAt(i), 16777619);
+            }
+            return function() {
+                h += 0x6D2B79F5;
+                let t = Math.imul(h ^ (h >>> 15), 1 | h);
+                t ^= t + Math.imul(t ^ (t >>> 7), 61 | t) ^ t;
+                return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+            };
+        }
+
+        function initDailyChallenge() {
+            const now = new Date();
+            const dateStr = now.toISOString().split('T')[0];
+            document.getElementById('daily-date').innerText = `CHALLENGE DU ${dateStr}`;
+
+            const rng = createSeededRandom(dateStr);
+            const pool = [...LOCATION_DATABASE];
+            dailyCountries = [];
+
+            for (let i = 0; i < 5; i++) {
+                if (pool.length === 0) break;
+                const idx = Math.floor(rng() * pool.length);
+                dailyCountries.push(pool.splice(idx, 1)[0]);
+            }
+
+            // Load saved state from LocalStorage
+            const savedState = localStorage.getItem(`guess_world_${dateStr}`);
+            if (savedState) {
+                const parsed = JSON.parse(savedState);
+                roundResults = parsed.roundResults || [];
+                currentRoundIndex = roundResults.length;
+                totalDailyScore = parsed.totalDailyScore || 0;
+                streak = parsed.streak || 0;
+            }
+
+            updateStreakDisplay();
+            updateStatsUI();
+
+            if (currentRoundIndex >= 5) {
+                renderEndGameGlobeRecap();
+                showSummaryModal();
+            } else {
+                setupRound(currentRoundIndex);
+            }
+        }
+
+        function setupRound(index) {
+            if (index >= dailyCountries.length) {
+                renderEndGameGlobeRecap();
+                showSummaryModal();
+                return;
+            }
+
+            const target = dailyCountries[index];
+            currentClueLevel = 1;
+            userGuessCoords = null;
+            clearGlobeMarkers();
+
+            // Badge type
+            const badge = document.getElementById('target-type-badge');
+            if (target.type === 'country') {
+                badge.innerText = currentLang === 'fr' ? '🌍 PAYS' : '🌍 COUNTRY';
+                badge.className = "px-2.5 py-1 rounded-full text-[11px] font-bold font-mono tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+            } else {
+                badge.innerText = currentLang === 'fr' ? '🏙️ VILLE' : '🏙️ CITY';
+                badge.className = "px-2.5 py-1 rounded-full text-[11px] font-bold font-mono tracking-wider bg-sky-500/20 text-sky-400 border border-sky-500/30";
+            }
+
+            document.getElementById('round-indicator').innerText = `MANCHE ${index + 1} / 5`;
+            updateCluesDisplay();
+
+            document.getElementById('guess-status').innerText = currentLang === 'fr' ? 
+                "📍 Touchez le globe pour placer votre marqueur" : "📍 Tap globe to place target pin";
+            
+            const confirmBtn = document.getElementById('confirm-guess-btn');
+            confirmBtn.disabled = true;
+        }
+
+        function updateCluesDisplay() {
+            const target = dailyCountries[currentRoundIndex];
+            const cluesList = target.clues[currentLang];
+            const container = document.getElementById('clues-container');
+            container.innerHTML = '';
+
+            for (let i = 0; i < currentClueLevel; i++) {
+                const div = document.createElement('div');
+                div.className = "p-2.5 rounded-2xl bg-slate-900/80 border border-slate-800 text-xs leading-relaxed text-slate-200 animate-in fade-in slide-in-from-top-1";
+                div.innerHTML = `<span class="text-amber-400 font-bold mr-1">#${i+1}</span> ${cluesList[i]}`;
+                container.appendChild(div);
+            }
+
+            const maxPts = 1000 - (currentClueLevel - 1) * 200;
+            document.getElementById('max-points-indicator').innerText = `${maxPts} PTS MAX`;
+            document.getElementById('clue-count-text').innerText = currentClueLevel;
+
+            const nextClueBtn = document.getElementById('next-clue-btn');
+            if (currentClueLevel < 5) {
+                nextClueBtn.classList.remove('hidden');
+                document.getElementById('next-clue-text').innerText = currentLang === 'fr' ?
+                    `Découvrir l'indice suivant (${currentClueLevel + 1}/5) [-200 pts]` :
+                    `Reveal next clue (${currentClueLevel + 1}/5) [-200 pts]`;
+            } else {
+                nextClueBtn.classList.add('hidden');
+            }
+        }
+
+        function revealNextClue() {
+            if (currentClueLevel < 5) {
+                currentClueLevel++;
+                updateCluesDisplay();
+            }
+        }
+
+        function calculateHaversine(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Earth radius in km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return Math.round(R * c);
+        }
+
+        function getCardinalDirection(lat1, lon1, lat2, lon2) {
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const y = Math.sin(dLon) * Math.cos(lat2 * Math.PI / 180);
+            const x = Math.cos(lat1 * Math.PI / 180) * Math.sin(lat2 * Math.PI / 180) -
+                      Math.sin(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.cos(dLon);
+            let brng = Math.atan2(y, x) * 180 / Math.PI;
+            brng = (brng + 360) % 360;
+
+            const dirsFR = ["Nord ⬆️", "Nord-Est ↗️", "Est ➡️", "Sud-Est ↘️", "Sud ⬇️", "Sud-Ouest ↙️", "Ouest ⬅️", "Nord-Ouest ↖️"];
+            const dirsEN = ["North ⬆️", "North-East ↗️", "East ➡️", "South-East ↘️", "South ⬇️", "South-West ↙️", "West ⬅️", "North-West ↖️"];
+            const idx = Math.round(brng / 45) % 8;
+            return currentLang === 'fr' ? dirsFR[idx] : dirsEN[idx];
+        }
+
+        function confirmGuess() {
+            if (!userGuessCoords) return;
+
+            const target = dailyCountries[currentRoundIndex];
+            const dist = calculateHaversine(userGuessCoords.lat, userGuessCoords.lng, target.coords.lat, target.coords.lng);
+            const dir = getCardinalDirection(userGuessCoords.lat, userGuessCoords.lng, target.coords.lat, target.coords.lng);
+
+            // Maximum points based on clue level used
+            const maxPts = 1000 - (currentClueLevel - 1) * 200;
+            let score = 0;
+            let isInsideCountry = false;
+
+            if (target.type === 'country') {
+                // RULE: If guess lands INSIDE country territory radius, award MAXIMUM score for clue level!
+                if (dist <= target.radiusKm) {
+                    isInsideCountry = true;
+                    score = maxPts;
+                } else {
+                    const extraDist = dist - target.radiusKm;
+                    score = Math.floor(maxPts * Math.exp(-extraDist / 1200));
+                }
+            } else {
+                // City target radius
+                if (dist <= 25) {
+                    isInsideCountry = true;
+                    score = maxPts;
+                } else {
+                    score = Math.floor(maxPts * Math.exp(-dist / 1200));
+                }
+            }
+
+            // Draw target pin and connecting arc curve
+            setTargetMarker(target.coords.lat, target.coords.lng);
+            drawArcBetweenPoints(userGuessCoords, target.coords);
+            focusGlobeOn(target.coords.lat, target.coords.lng);
+
+            // Record round
+            const roundData = {
+                target,
+                guessCoords: userGuessCoords,
+                distance: dist,
+                score,
+                isInsideCountry,
+                cluesUsed: currentClueLevel
+            };
+            roundResults.push(roundData);
+            totalDailyScore += score;
+
+            // Show Result Modal
+            document.getElementById('result-flag').innerText = target.flag;
+            document.getElementById('result-name').innerText = target.names[currentLang];
+            document.getElementById('result-type').innerText = target.type === 'country' ? 'PAYS CIBLE' : 'VILLE CIBLE';
+            document.getElementById('result-dist').innerText = `${dist.toLocaleString()} km`;
+            document.getElementById('result-dir').innerText = dir;
+            document.getElementById('result-score').innerText = `+${score} pts`;
+            document.getElementById('result-capital').innerText = target.capital;
+            document.getElementById('result-pop').innerText = target.pop;
+            document.getElementById('result-fact').innerText = `"${target.fact[currentLang]}"`;
+
+            const insideBadge = document.getElementById('result-inside-badge');
+            if (isInsideCountry) {
+                insideBadge.classList.remove('hidden');
+            } else {
+                insideBadge.classList.add('hidden');
+            }
+
+            openModal('result-modal');
+
+            // Save Progress
+            const now = new Date();
+            const dateStr = now.toISOString().split('T')[0];
+            if (roundResults.length === 5) {
+                streak++;
+            }
+            localStorage.setItem(`guess_world_${dateStr}`, JSON.stringify({
+                roundResults,
+                totalDailyScore,
+                streak
+            }));
+            updateStreakDisplay();
+        }
+
+        function nextRound() {
+            closeModal('result-modal');
+            currentRoundIndex++;
+            if (currentRoundIndex >= 5) {
+                renderEndGameGlobeRecap();
+                showSummaryModal();
+            } else {
+                setupRound(currentRoundIndex);
+            }
+        }
+
+        function showSummaryModal() {
+            document.getElementById('summary-total-score').innerText = `${totalDailyScore.toLocaleString()} / 5,000`;
+            const listContainer = document.getElementById('summary-rounds-list');
+            listContainer.innerHTML = '';
+
+            roundResults.forEach((res, i) => {
+                const div = document.createElement('div');
+                div.className = "flex items-center justify-between p-2.5 rounded-2xl bg-slate-900/80 border border-slate-800 text-xs font-mono";
+                div.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <span class="text-amber-400 font-bold">#${i+1}</span>
+                        <span>${res.target.flag}</span>
+                        <span class="font-bold text-white">${res.target.names[currentLang]}</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-amber-400 font-bold">${res.score} pts</span>
+                        <span class="text-[10px] text-slate-500 block">${res.distance} km</span>
+                    </div>
+                `;
+                listContainer.appendChild(div);
+            });
+
+            document.getElementById('game-hud').classList.add('hidden');
+            document.getElementById('recap-hud-bar').classList.remove('hidden');
+            openModal('summary-modal');
+        }
+
+        function viewFullRecapOnGlobe() {
+            closeModal('summary-modal');
+            controls.autoRotate = true;
+            controls.autoRotateSpeed = 0.5;
+        }
+
+        function renderEndGameGlobeRecap() {
+            clearGlobeMarkers();
+            drawWorldCountryBorders(); // Render detailed country borders overlay
+            
+            // Render ALL 5 guesses, targets, and connecting arcs simultaneously
+            roundResults.forEach((res, index) => {
+                const colorHex = res.score > 800 ? 0x22c55e : res.score > 400 ? 0xf59e0b : 0xef4444;
+
+                // Guess pin
+                setGuessMarker(res.guessCoords.lat, res.guessCoords.lng, colorHex, `#${index + 1}`);
+                // Target pin
+                setTargetMarker(res.target.coords.lat, res.target.coords.lng);
+                // Arc
+                drawArcBetweenPoints(res.guessCoords, res.target.coords, colorHex);
+            });
+        }
+
+        function copyShareResults() {
+            const now = new Date();
+            const dateStr = now.toISOString().split('T')[0];
+            let text = `🌍 GUESS THE WORLD (${dateStr})\n`;
+            roundResults.forEach((r, idx) => {
+                const emoji = r.score > 800 ? '🟩' : r.score > 400 ? '🟨' : '🟥';
+                text += `#${idx + 1} ${r.target.flag} ${emoji} ${r.score} pts (${r.distance} km)\n`;
+            });
+            text += `🏆 Score Total: ${totalDailyScore} / 5,000\n🔥 Streak: ${streak} jours\nhttps://guess-the-world.app`;
+
+            navigator.clipboard.writeText(text).then(() => {
+                document.getElementById('share-btn-text').innerText = "COPIÉ DANS LE PRESSE-PAPIERS !";
+                setTimeout(() => {
+                    document.getElementById('share-btn-text').innerText = "PARTAGER MON RÉSULTAT";
+                }, 2000);
+            });
+        }
+
+        // Modal Handlers
+        function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+        function toggleLanguage() {
+            currentLang = currentLang === 'fr' ? 'en' : 'fr';
+            document.getElementById('lang-flag').innerText = currentLang === 'fr' ? '🇫🇷' : '🇬🇧';
+            document.getElementById('lang-label').innerText = currentLang.toUpperCase();
+            if (currentRoundIndex < 5) setupRound(currentRoundIndex);
+        }
+
+        function updateStreakDisplay() {
+            document.getElementById('streak-count').innerText = streak;
+        }
+
+        function updateStatsUI() {
+            document.getElementById('stat-played').innerText = roundResults.length > 0 ? 1 : 0;
+            document.getElementById('stat-streak').innerText = `🔥 ${streak}`;
+            document.getElementById('stat-avg-score').innerText = totalDailyScore;
+            document.getElementById('stat-best-streak').innerText = streak;
+        }
+
+        let scene, camera, renderer, controls;
+        let globeMesh;
+        let recapMarkersGroup = new THREE.Group();
+        let bordersGroup = new THREE.Group();
+        let raycaster, mouse;
+        const GLOBE_RADIUS = 5;
+        let worldGeoData = null;
+
+        async function loadCountryBorders() {
+            try {
+                const res = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
+                worldGeoData = await res.json();
+            } catch (err) {
+                console.warn("Could not load country borders topology", err);
+            }
+        }
+
+        function drawWorldCountryBorders() {
+            while (bordersGroup.children.length > 0) {
+                bordersGroup.remove(bordersGroup.children[0]);
+            }
+            if (!worldGeoData) return;
+
+            // Draw full country boundary mesh line geometries
+            const mesh = topojson.mesh(worldGeoData, worldGeoData.objects.countries);
+            if (mesh && mesh.coordinates) {
+                const material = new THREE.LineBasicMaterial({
+                    color: 0x38bdf8,
+                    transparent: true,
+                    opacity: 0.55
+                });
+
+                mesh.coordinates.forEach(lineCoords => {
+                    const points = [];
+                    lineCoords.forEach(([lng, lat]) => {
+                        points.push(latLngToVector3(lat, lng, GLOBE_RADIUS, 0.018));
+                    });
+                    if (points.length > 1) {
+                        const geom = new THREE.BufferGeometry().setFromPoints(points);
+                        bordersGroup.add(new THREE.Line(geom, material));
+                    }
+                });
+            }
+        }
+
+        function init3DGlobe() {
+            const container = document.getElementById('globe-container');
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x05070e);
+            scene.add(recapMarkersGroup);
+            scene.add(bordersGroup);
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 0, 15);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.minDistance = 6.2;
+            controls.maxDistance = 25;
+            controls.autoRotate = true;
+            controls.autoRotateSpeed = 0.4;
+
+            // Lighting
+            const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambient);
+
+            const sun = new THREE.DirectionalLight(0xffffff, 1.2);
+            sun.position.set(12, 10, 10);
+            scene.add(sun);
+
+            // Clean Globe Texture
+            const geometry = new THREE.SphereGeometry(GLOBE_RADIUS, 128, 128);
+            const textureLoader = new THREE.TextureLoader();
+            const earthTexture = textureLoader.load('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg');
+
+            const globeMaterial = new THREE.MeshStandardMaterial({
+                map: earthTexture,
+                roughness: 0.7,
+                metalness: 0.1
+            });
+
+            globeMesh = new THREE.Mesh(geometry, globeMaterial);
+            scene.add(globeMesh);
+
+            // Atmosphere Glow
+            const atmosGeo = new THREE.SphereGeometry(GLOBE_RADIUS * 1.12, 64, 64);
+            const atmosMat = new THREE.ShaderMaterial({
+                vertexShader: `
+                    varying vec3 vNormal;
+                    void main() {
+                        vNormal = normalize(normalMatrix * normal);
+                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                    }
+                `,
+                fragmentShader: `
+                    varying vec3 vNormal;
+                    void main() {
+                        float intensity = pow(0.6 - dot(vNormal, vec3(0, 0, 1.0)), 2.0);
+                        gl_FragColor = vec4(0.2, 0.6, 1.0, 1.0) * intensity;
+                    }
+                `,
+                blending: THREE.AdditiveBlending,
+                side: THREE.BackSide,
+                transparent: true
+            });
+            scene.add(new THREE.Mesh(atmosGeo, atmosMat));
+
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            window.addEventListener('resize', onWindowResize);
+            window.addEventListener('pointerdown', onGlobePointerDown);
+
+            animate();
+        }
+
+        function latLngToVector3(lat, lng, radius, height = 0) {
+            const phi = (90 - lat) * (Math.PI / 180);
+            const theta = (lng + 180) * (Math.PI / 180);
+            const r = radius + height;
+            return new THREE.Vector3(
+                -(r * Math.sin(phi) * Math.cos(theta)),
+                r * Math.cos(phi),
+                r * Math.sin(phi) * Math.sin(theta)
+            );
+        }
+
+        function vector3ToLatLng(vec) {
+            const radius = vec.length();
+            const lat = 90 - (Math.acos(vec.y / radius) * 180 / Math.PI);
+            const lng = ((Math.atan2(vec.z, -vec.x) * 180 / Math.PI) - 180);
+            return { lat, lng };
+        }
+
+        let pointerDownPos = { x: 0, y: 0 };
+        function onGlobePointerDown(event) {
+            pointerDownPos = { x: event.clientX, y: event.clientY };
+            window.addEventListener('pointerup', onGlobePointerUp, { once: true });
+        }
+
+        function onGlobePointerUp(event) {
+            if (currentRoundIndex >= 5) return; // Game over recap mode
+
+            const distMoved = Math.hypot(event.clientX - pointerDownPos.x, event.clientY - pointerDownPos.y);
+            if (distMoved > 6) return;
+
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObject(globeMesh);
+
+            if (intersects.length > 0) {
+                const hitPoint = intersects[0].point;
+                userGuessCoords = vector3ToLatLng(hitPoint);
+                
+                // Clear active round single guess marker
+                clearGlobeMarkers();
+                setGuessMarker(userGuessCoords.lat, userGuessCoords.lng, 0x38bdf8);
+
+                document.getElementById('guess-status').innerText = currentLang === 'fr' ?
+                    `📍 Marqueur placé ! Cliquez sur Valider.` : `📍 Pin placed! Tap Confirm.`;
+                document.getElementById('confirm-guess-btn').disabled = false;
+            }
+        }
+
+        function setGuessMarker(lat, lng, colorHex = 0x38bdf8, labelText = "") {
+            const pos = latLngToVector3(lat, lng, GLOBE_RADIUS, 0.08);
+            const pinGroup = new THREE.Group();
+
+            const sphere = new THREE.Mesh(
+                new THREE.SphereGeometry(0.12, 16, 16),
+                new THREE.MeshBasicMaterial({ color: colorHex })
+            );
+            sphere.position.copy(pos);
+
+            const lineGeo = new THREE.BufferGeometry().setFromPoints([
+                latLngToVector3(lat, lng, GLOBE_RADIUS),
+                latLngToVector3(lat, lng, GLOBE_RADIUS, 0.28)
+            ]);
+            const line = new THREE.Line(lineGeo, new THREE.LineBasicMaterial({ color: colorHex }));
+
+            pinGroup.add(sphere);
+            pinGroup.add(line);
+            recapMarkersGroup.add(pinGroup);
+        }
+
+        function setTargetMarker(lat, lng) {
+            const pos = latLngToVector3(lat, lng, GLOBE_RADIUS, 0.08);
+            const pinGroup = new THREE.Group();
+
+            const sphere = new THREE.Mesh(
+                new THREE.SphereGeometry(0.12, 16, 16),
+                new THREE.MeshBasicMaterial({ color: 0x22c55e })
+            );
+            sphere.position.copy(pos);
+
+            const lineGeo = new THREE.BufferGeometry().setFromPoints([
+                latLngToVector3(lat, lng, GLOBE_RADIUS),
+                latLngToVector3(lat, lng, GLOBE_RADIUS, 0.3)
+            ]);
+            const line = new THREE.Line(lineGeo, new THREE.LineBasicMaterial({ color: 0x22c55e }));
+
+            pinGroup.add(sphere);
+            pinGroup.add(line);
+            recapMarkersGroup.add(pinGroup);
+        }
+
+        function drawArcBetweenPoints(c1, c2, colorHex = 0xf59e0b) {
+            const v1 = latLngToVector3(c1.lat, c1.lng, GLOBE_RADIUS, 0.05);
+            const v2 = latLngToVector3(c2.lat, c2.lng, GLOBE_RADIUS, 0.05);
+
+            const points = [];
+            const count = 40;
+            for (let i = 0; i <= count; i++) {
+                const t = i / count;
+                const vec = new THREE.Vector3().lerpVectors(v1, v2, t);
+                const altitude = Math.sin(t * Math.PI) * 0.8;
+                vec.normalize().multiplyScalar(GLOBE_RADIUS + 0.05 + altitude);
+                points.push(vec);
+            }
+
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            const material = new THREE.LineBasicMaterial({ color: colorHex, linewidth: 2 });
+            const arc = new THREE.Line(geometry, material);
+            recapMarkersGroup.add(arc);
+        }
+
+        function clearGlobeMarkers() {
+            while (recapMarkersGroup.children.length > 0) {
+                const obj = recapMarkersGroup.children[0];
+                recapMarkersGroup.remove(obj);
+            }
+        }
+
+        function focusGlobeOn(lat, lng) {
+            controls.autoRotate = false;
+            const targetPos = latLngToVector3(lat, lng, 12);
+            camera.position.copy(targetPos);
+            camera.lookAt(0, 0, 0);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        window.onload = () => {
+            init3DGlobe();
+            loadCountryBorders().then(() => {
+                drawWorldCountryBorders();
+            });
+            checkUserAuth();
+        };
+    </script>
+</body>
+</html>
